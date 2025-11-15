@@ -1,0 +1,710 @@
+<template>
+  <div class="admission-view">
+    <!-- Header da Página -->
+    <div class="page-header">
+      <div class="header-content">
+        <h1>👥 Admissão e Triagem de Pacientes</h1>
+        <p>Controle de entrada, avaliação inicial e documentação legal</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-primary" @click="showNewPatientForm = true">➕ Nova Admissão</button>
+        <button class="btn-secondary">📊 Relatório de Admissões</button>
+      </div>
+    </div>
+
+    <!-- Estatísticas Rápidas -->
+    <div class="quick-stats">
+      <div class="stat-item">
+        <span class="stat-number">{{ patients.length }}</span>
+        <span class="stat-label">Pacientes Totais</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">{{ getPatientsByType('voluntaria').length }}</span>
+        <span class="stat-label">Internações Voluntárias</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">{{ getPatientsByType('involuntaria').length }}</span>
+        <span class="stat-label">Internações Involuntárias</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">{{ getPendingAdmissions().length }}</span>
+        <span class="stat-label">Pendentes de Triagem</span>
+      </div>
+    </div>
+
+    <!-- Filtros e Busca -->
+    <div class="filters-section">
+      <div class="search-box">
+        <input
+          type="text"
+          v-model="searchTerm"
+          placeholder="Buscar paciente por nome, CPF ou prontuário..."
+          class="search-input"
+        />
+      </div>
+      <div class="filter-buttons">
+        <button
+          v-for="filter in filters"
+          :key="filter.value"
+          :class="['filter-btn', { active: currentFilter === filter.value }]"
+          @click="currentFilter = filter.value"
+        >
+          {{ filter.label }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Lista de Pacientes -->
+    <div class="patients-table">
+      <div class="table-header">
+        <div class="table-row header-row">
+          <div class="table-cell">Prontuário</div>
+          <div class="table-cell">Paciente</div>
+          <div class="table-cell">CPF</div>
+          <div class="table-cell">Tipo Internação</div>
+          <div class="table-cell">Data Admissão</div>
+          <div class="table-cell">Status</div>
+          <div class="table-cell">Ações</div>
+        </div>
+      </div>
+
+      <div class="table-body">
+        <div v-for="patient in filteredPatients" :key="patient.id" class="table-row">
+          <div class="table-cell">{{ patient.recordNumber }}</div>
+          <div class="table-cell">
+            <strong>{{ patient.name }}</strong>
+            <br />
+            <small>{{ patient.age }} anos • {{ patient.gender }}</small>
+          </div>
+          <div class="table-cell">{{ formatCPF(patient.cpf) }}</div>
+          <div class="table-cell">
+            <span :class="['badge', `badge-${patient.admissionType}`]">
+              {{ getAdmissionTypeLabel(patient.admissionType) }}
+            </span>
+          </div>
+          <div class="table-cell">{{ formatDate(patient.admissionDate) }}</div>
+          <div class="table-cell">
+            <span :class="['status', `status-${patient.status}`]">
+              {{ getStatusLabel(patient.status) }}
+            </span>
+          </div>
+          <div class="table-cell">
+            <button class="action-btn view-btn" @click="viewPatient(patient)">👁️ Visualizar</button>
+            <button class="action-btn edit-btn" @click="editPatient(patient)">✏️ Editar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Novo Paciente -->
+    <div v-if="showNewPatientForm" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Nova Admissão de Paciente</h2>
+          <button class="close-btn" @click="showNewPatientForm = false">×</button>
+        </div>
+
+        <div class="modal-body">
+          <form @submit.prevent="savePatient" class="patient-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Nome Completo *</label>
+                <input type="text" v-model="newPatient.name" required />
+              </div>
+              <div class="form-group">
+                <label>CPF *</label>
+                <input type="text" v-model="newPatient.cpf" required />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Data de Nascimento *</label>
+                <input type="date" v-model="newPatient.birthDate" required />
+              </div>
+              <div class="form-group">
+                <label>Gênero *</label>
+                <select v-model="newPatient.gender" required>
+                  <option value="masculino">Masculino</option>
+                  <option value="feminino">Feminino</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Tipo de Internação *</label>
+                <select v-model="newPatient.admissionType" required>
+                  <option value="voluntaria">Voluntária</option>
+                  <option value="involuntaria">Involuntária</option>
+                  <option value="compulsoria">Compulsória</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Substância Principal</label>
+                <select v-model="newPatient.mainSubstance">
+                  <option value="alcool">Álcool</option>
+                  <option value="cocaina">Cocaína/Crack</option>
+                  <option value="maconha">Maconha</option>
+                  <option value="medicamentos">Medicamentos Controlados</option>
+                  <option value="outras">Outras Substâncias</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn-cancel" @click="showNewPatientForm = false">
+                Cancelar
+              </button>
+              <button type="submit" class="btn-save">💾 Salvar Admissão</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+export default {
+  name: 'AdmissionView',
+  data() {
+    return {
+      showNewPatientForm: false,
+      searchTerm: '',
+      currentFilter: 'all',
+      filters: [
+        { label: 'Todos', value: 'all' },
+        { label: 'Voluntárias', value: 'voluntaria' },
+        { label: 'Involuntárias', value: 'involuntaria' },
+        { label: 'Compulsórias', value: 'compulsoria' },
+        { label: 'Pendentes', value: 'pending' },
+      ],
+      newPatient: {
+        name: '',
+        cpf: '',
+        birthDate: '',
+        gender: 'masculino',
+        admissionType: 'voluntaria',
+        mainSubstance: 'alcool',
+      },
+      patients: [
+        {
+          id: 1,
+          recordNumber: '2024-001',
+          name: 'João Silva Santos',
+          age: 34,
+          gender: 'masculino',
+          cpf: '12345678900',
+          admissionType: 'voluntaria',
+          admissionDate: '2024-01-15',
+          status: 'triagem',
+        },
+        {
+          id: 2,
+          recordNumber: '2024-002',
+          name: 'Maria Oliveira Costa',
+          age: 28,
+          gender: 'feminino',
+          cpf: '98765432100',
+          admissionType: 'involuntaria',
+          admissionDate: '2024-01-16',
+          status: 'internado',
+        },
+        {
+          id: 3,
+          recordNumber: '2024-003',
+          name: 'Carlos Alberto Souza',
+          age: 45,
+          gender: 'masculino',
+          cpf: '45678912300',
+          admissionType: 'compulsoria',
+          admissionDate: '2024-01-17',
+          status: 'triagem',
+        },
+      ],
+    }
+  },
+  computed: {
+    filteredPatients() {
+      let filtered = this.patients
+
+      // Filtro por busca
+      if (this.searchTerm) {
+        const term = this.searchTerm.toLowerCase()
+        filtered = filtered.filter(
+          (patient) =>
+            patient.name.toLowerCase().includes(term) ||
+            patient.cpf.includes(term) ||
+            patient.recordNumber.toLowerCase().includes(term),
+        )
+      }
+
+      // Filtro por tipo
+      if (this.currentFilter !== 'all') {
+        if (this.currentFilter === 'pending') {
+          filtered = filtered.filter((patient) => patient.status === 'triagem')
+        } else {
+          filtered = filtered.filter((patient) => patient.admissionType === this.currentFilter)
+        }
+      }
+
+      return filtered
+    },
+  },
+  methods: {
+    getPatientsByType(type) {
+      return this.patients.filter((patient) => patient.admissionType === type)
+    },
+    getPendingAdmissions() {
+      return this.patients.filter((patient) => patient.status === 'triagem')
+    },
+    formatCPF(cpf) {
+      return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
+    },
+    formatDate(date) {
+      return new Date(date).toLocaleDateString('pt-BR')
+    },
+    getAdmissionTypeLabel(type) {
+      const labels = {
+        voluntaria: 'Voluntária',
+        involuntaria: 'Involuntária',
+        compulsoria: 'Compulsória',
+      }
+      return labels[type] || type
+    },
+    getStatusLabel(status) {
+      const labels = {
+        triagem: 'Em Triagem',
+        internado: 'Internado',
+        alta: 'Alta Médica',
+      }
+      return labels[status] || status
+    },
+    viewPatient(patient) {
+      // Visualização simples e funcional
+      const details = `
+📋 PRONTUÁRIO: ${patient.recordNumber}
+👤 NOME: ${patient.name}
+📅 IDADE: ${patient.age} anos
+⚧ GÊNERO: ${patient.gender}
+🔢 CPF: ${this.formatCPF(patient.cpf)}
+🏥 TIPO INTERNAÇÃO: ${this.getAdmissionTypeLabel(patient.admissionType)}
+📅 DATA ADMISSÃO: ${this.formatDate(patient.admissionDate)}
+📊 STATUS: ${this.getStatusLabel(patient.status)}
+      `.trim()
+
+      alert(details)
+    },
+    editPatient(patient) {
+      // Edição simples - preenche o formulário com dados do paciente
+      this.newPatient = {
+        name: patient.name,
+        cpf: patient.cpf,
+        birthDate: patient.birthDate || '',
+        gender: patient.gender,
+        admissionType: patient.admissionType,
+        mainSubstance: patient.mainSubstance || 'alcool',
+      }
+
+      // Remove o paciente da lista (será readicionado com os dados atualizados)
+      this.patients = this.patients.filter((p) => p.id !== patient.id)
+
+      // Abre o modal de formulário
+      this.showNewPatientForm = true
+    },
+    savePatient() {
+      // Gerar número de prontuário sequencial
+      const lastRecord = this.patients[this.patients.length - 1]
+      const lastNumber = parseInt(lastRecord.recordNumber.split('-')[1])
+      const newRecordNumber = `2024-${String(lastNumber + 1).padStart(3, '0')}`
+
+      // Calcular idade a partir da data de nascimento
+      const birthDate = new Date(this.newPatient.birthDate)
+      const today = new Date()
+      const age = today.getFullYear() - birthDate.getFullYear()
+
+      // Criar novo paciente
+      const newPatient = {
+        id: this.patients.length + 1,
+        recordNumber: newRecordNumber,
+        name: this.newPatient.name,
+        age: age,
+        gender: this.newPatient.gender,
+        cpf: this.newPatient.cpf,
+        admissionType: this.newPatient.admissionType,
+        admissionDate: new Date().toISOString().split('T')[0],
+        status: 'triagem',
+        mainSubstance: this.newPatient.mainSubstance,
+      }
+
+      // Adicionar à lista
+      this.patients.push(newPatient)
+
+      // Fechar modal e resetar form
+      this.showNewPatientForm = false
+      this.resetNewPatientForm()
+
+      alert(
+        `Paciente ${newPatient.name} ${this.patients.length > 3 ? 'atualizado' : 'admitido'} com sucesso!\nProntuário: ${newPatient.recordNumber}`,
+      )
+    },
+    resetNewPatientForm() {
+      this.newPatient = {
+        name: '',
+        cpf: '',
+        birthDate: '',
+        gender: 'masculino',
+        admissionType: 'voluntaria',
+        mainSubstance: 'alcool',
+      }
+    },
+  },
+}
+</script>
+
+<style scoped>
+.admission-view {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  background-color: #f8fafc;
+  min-height: 100vh;
+}
+
+/* Header */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  background: white;
+  padding: 2rem;
+  border-radius: 15px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.header-content h1 {
+  color: #1e3c72;
+  margin-bottom: 0.5rem;
+}
+
+.header-content p {
+  color: #666;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  border: 2px solid #e2e8f0;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
+}
+
+/* Estatísticas Rápidas */
+.quick-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-item {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  text-align: center;
+  border-left: 4px solid #1e3c72;
+}
+
+.stat-number {
+  display: block;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #1e3c72;
+}
+
+.stat-label {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Filtros */
+.filters-section {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.filter-btn {
+  padding: 0.5rem 1rem;
+  border: 2px solid #e2e8f0;
+  background: white;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.filter-btn.active {
+  background: #1e3c72;
+  color: white;
+  border-color: #1e3c72;
+}
+
+/* Tabela */
+.patients-table {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.table-header {
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr 1fr 1fr 1fr 2fr;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  align-items: center;
+}
+
+.header-row {
+  font-weight: bold;
+  color: #1e3c72;
+}
+
+.table-row:not(.header-row) {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.table-row:not(.header-row):hover {
+  background: #f8fafc;
+}
+
+/* Badges e Status */
+.badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.badge-voluntaria {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge-involuntaria {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-compulsoria {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.status-triagem {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-internado {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-alta {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* Botões de Ação */
+.action-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-right: 0.5rem;
+}
+
+.view-btn {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.edit-btn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 15px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-header h2 {
+  color: #1e3c72;
+  margin: 0;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  color: #666;
+}
+
+.modal-body {
+  padding: 2rem;
+}
+
+/* Formulário */
+.patient-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.form-group input,
+.form-group select {
+  padding: 0.75rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #1e3c72;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 2rem;
+}
+
+.btn-cancel {
+  background: #f1f5f9;
+  border: 2px solid #e2e8f0;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-save {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+</style>
