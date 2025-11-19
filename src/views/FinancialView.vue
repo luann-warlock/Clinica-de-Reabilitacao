@@ -1,6 +1,6 @@
 <template>
   <div class="financial-view">
-    <!-- Header da Página - ORIGINAL -->
+    <!-- Header da Página -->
     <div class="page-header">
       <div class="header-content">
         <h1>💰 Gestão Financeira</h1>
@@ -11,12 +11,12 @@
           💳 Registrar Pagamento
         </button>
         <button class="btn-secondary" @click="generateFinancialReport">
-          📊 Gerar Relatório
+          📊 Relatório Financeiro
         </button>
       </div>
     </div>
 
-    <!-- Estatísticas Rápidas - ORIGINAL -->
+    <!-- Estatísticas Rápidas -->
     <div class="quick-stats">
       <div class="stat-card">
         <div class="stat-icon">💰</div>
@@ -52,7 +52,7 @@
       </div>
     </div>
 
-    <!-- Abas do Financeiro - ORIGINAL -->
+    <!-- Abas do Financeiro -->
     <div class="financial-tabs">
       <div class="tabs-header">
         <button 
@@ -66,7 +66,7 @@
       </div>
 
       <div class="tab-content">
-        <!-- ABA: Mensalidades - ORIGINAL -->
+        <!-- ABA: Mensalidades -->
         <div v-if="currentTab === 'payments'" class="tab-panel">
           <div class="section-header">
             <h3>💳 Controle de Mensalidades</h3>
@@ -156,7 +156,7 @@
           </div>
         </div>
 
-        <!-- ABA: Faturamento - ORIGINAL -->
+        <!-- ABA: Faturamento -->
         <div v-if="currentTab === 'billing'" class="tab-panel">
           <div class="section-header">
             <h3>🏥 Faturamento por Convênio</h3>
@@ -210,10 +210,30 @@
                 </div>
               </div>
             </div>
+
+            <div class="billing-chart">
+              <h4>Evolução do Faturamento (Últimos 6 Meses)</h4>
+              <div class="chart-placeholder">
+                <div class="chart-bars">
+                  <div 
+                    v-for="month in revenueHistory"
+                    :key="month.month"
+                    class="chart-bar"
+                  >
+                    <div 
+                      class="bar"
+                      :style="{ height: (month.revenue / maxRevenue) * 100 + '%' }"
+                    ></div>
+                    <span class="bar-label">{{ formatCurrency(month.revenue) }}</span>
+                    <span class="month-label">{{ month.month }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- ABA: Fluxo de Caixa - ORIGINAL -->
+        <!-- ABA: Fluxo de Caixa -->
         <div v-if="currentTab === 'cashflow'" class="tab-panel">
           <div class="section-header">
             <h3>📈 Fluxo de Caixa</h3>
@@ -224,6 +244,9 @@
                 <option value="month">Este Mês</option>
                 <option value="quarter">Este Trimestre</option>
               </select>
+              <button class="btn-primary small" @click="showExpenseModal = true">
+                💸 Nova Despesa
+              </button>
             </div>
           </div>
 
@@ -284,7 +307,7 @@
           </div>
         </div>
 
-        <!-- ABA: Relatórios - ORIGINAL -->
+        <!-- ABA: Relatórios -->
         <div v-if="currentTab === 'reports'" class="tab-panel">
           <div class="section-header">
             <h3>📋 Relatórios Financeiros</h3>
@@ -334,7 +357,7 @@
       </div>
     </div>
 
-    <!-- Modal Registrar Pagamento - ORIGINAL -->
+    <!-- Modal Registrar Pagamento -->
     <div v-if="showNewPayment" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
@@ -423,7 +446,7 @@
       </div>
     </div>
 
-    <!-- Modal Registrar Pagamento Existente - ORIGINAL -->
+    <!-- Modal Registrar Pagamento Existente -->
     <div v-if="showRegisterPayment" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
@@ -441,6 +464,9 @@
             </div>
             <div class="detail-item">
               <strong>Vencimento:</strong> {{ formatDate(registeringPayment.dueDate) }}
+            </div>
+            <div class="detail-item" v-if="isOverdue(registeringPayment)">
+              <strong>Status:</strong> <span class="overdue-text">Pagamento em atraso</span>
             </div>
           </div>
 
@@ -493,6 +519,81 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal Nova Despesa -->
+    <div v-if="showExpenseModal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>💸 Nova Despesa</h2>
+          <button class="close-btn" @click="showExpenseModal = false">×</button>
+        </div>
+        
+        <div class="modal-body">
+          <form @submit.prevent="saveExpense" class="expense-form">
+            <div class="form-group">
+              <label>Descrição da Despesa *</label>
+              <input 
+                type="text" 
+                v-model="newExpense.description" 
+                placeholder="Ex: Aluguel, Folha de Pagamento, etc."
+                required
+              >
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Valor *</label>
+                <input 
+                  type="number" 
+                  v-model="newExpense.amount" 
+                  placeholder="0.00"
+                  step="0.01"
+                  required
+                >
+              </div>
+              <div class="form-group">
+                <label>Data *</label>
+                <input 
+                  type="date" 
+                  v-model="newExpense.date" 
+                  required
+                >
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Categoria *</label>
+              <select v-model="newExpense.category" required>
+                <option value="folha_pagamento">Folha de Pagamento</option>
+                <option value="aluguel">Aluguel</option>
+                <option value="utilidades">Utilidades (Luz, Água, Internet)</option>
+                <option value="medicamentos">Medicamentos</option>
+                <option value="manutencao">Manutenção</option>
+                <option value="outros">Outros</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>Observações</label>
+              <textarea 
+                v-model="newExpense.observations" 
+                rows="3"
+                placeholder="Observações sobre a despesa..."
+              ></textarea>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn-cancel" @click="showExpenseModal = false">
+                Cancelar
+              </button>
+              <button type="submit" class="btn-save">
+                💾 Salvar Despesa
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -507,6 +608,7 @@ export default {
       cashflowPeriod: 'month',
       showNewPayment: false,
       showRegisterPayment: false,
+      showExpenseModal: false,
       isEditingPayment: false,
       editingPaymentId: null,
       registeringPayment: null,
@@ -516,7 +618,21 @@ export default {
         { id: 'cashflow', label: '📈 Fluxo de Caixa' },
         { id: 'reports', label: '📋 Relatórios' }
       ],
-      newPayment: this.getEmptyPayment(),
+      newPayment: {
+        patientId: '',
+        amount: '',
+        dueDate: '',
+        paymentType: 'mensalidade',
+        insurance: '',
+        observations: ''
+      },
+      newExpense: {
+        description: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        category: 'folha_pagamento',
+        observations: ''
+      },
       paymentRegistration: {
         paymentDate: new Date().toISOString().split('T')[0],
         paymentMethod: 'pix',
@@ -602,6 +718,14 @@ export default {
           date: '2024-01-03',
           category: 'aluguel',
           observations: 'Aluguel do mês de janeiro'
+        },
+        {
+          id: 3,
+          description: 'Medicamentos Controlados',
+          amount: 3500.00,
+          date: '2024-01-10',
+          category: 'medicamentos',
+          observations: 'Reposição de medicamentos da farmácia'
         }
       ],
       revenueHistory: [
@@ -643,6 +767,10 @@ export default {
       return this.payments.filter(payment => 
         payment.status === 'pending' && this.isOverdue(payment)
       )
+    },
+    
+    overdueAmount() {
+      return this.overduePayments.reduce((sum, p) => sum + p.amount, 0)
     },
     
     paidPayments() {
@@ -702,6 +830,10 @@ export default {
       }))
     },
     
+    maxRevenue() {
+      return Math.max(...this.revenueHistory.map(m => m.revenue))
+    },
+    
     cashflowSummary() {
       const income = this.payments
         .filter(p => p.status === 'paid')
@@ -745,17 +877,6 @@ export default {
     }
   },
   methods: {
-    getEmptyPayment() {
-      return {
-        patientId: '',
-        amount: '',
-        dueDate: '',
-        paymentType: 'mensalidade',
-        insurance: '',
-        observations: ''
-      }
-    },
-    
     formatCurrency(value) {
       return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
@@ -946,11 +1067,41 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
       this.closePaymentModal()
     },
     
+    saveExpense() {
+      const newExpense = {
+        id: this.expenses.length + 1,
+        description: this.newExpense.description,
+        amount: parseFloat(this.newExpense.amount),
+        date: this.newExpense.date,
+        category: this.newExpense.category,
+        observations: this.newExpense.observations
+      }
+
+      this.expenses.push(newExpense)
+      this.showExpenseModal = false
+      this.newExpense = {
+        description: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0],
+        category: 'folha_pagamento',
+        observations: ''
+      }
+
+      alert('Despesa registrada com sucesso!')
+    },
+    
     closePaymentModal() {
       this.showNewPayment = false
       this.isEditingPayment = false
       this.editingPaymentId = null
-      this.newPayment = this.getEmptyPayment()
+      this.newPayment = {
+        patientId: '',
+        amount: '',
+        dueDate: '',
+        paymentType: 'mensalidade',
+        insurance: '',
+        observations: ''
+      }
     },
     
     closeRegisterPaymentModal() {
@@ -1346,7 +1497,6 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
 </script>
 
 <style scoped>
-/* ESTILOS ORIGINAIS RESTAURADOS */
 .financial-view {
   padding: 2rem;
   max-width: 1400px;
@@ -1355,7 +1505,6 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   min-height: 100vh;
 }
 
-/* Header */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -1416,7 +1565,6 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   background: #e2e8f0;
 }
 
-/* Estatísticas Rápidas */
 .quick-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -1467,7 +1615,6 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   color: #065f46;
 }
 
-/* Abas */
 .financial-tabs {
   background: white;
   border-radius: 10px;
@@ -1502,7 +1649,6 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   padding: 2rem;
 }
 
-/* Conteúdo das Abas */
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -1534,7 +1680,6 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   align-items: center;
 }
 
-/* Tabela de Pagamentos */
 .payments-table {
   background: white;
   border-radius: 10px;
@@ -1568,7 +1713,6 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   background: #f8fafc;
 }
 
-/* Badges e Status */
 .status-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 15px;
@@ -1613,7 +1757,6 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   color: #92400e;
 }
 
-/* Botões de Ação */
 .action-btn {
   padding: 0.5rem 1rem;
   border: none;
@@ -1640,7 +1783,6 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   color: #92400e;
 }
 
-/* Conteúdo do Faturamento */
 .billing-content {
   display: flex;
   flex-direction: column;
@@ -1735,7 +1877,57 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   color: #666;
 }
 
-/* Fluxo de Caixa */
+.billing-chart {
+  background: #f8fafc;
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.billing-chart h4 {
+  color: #1e3c72;
+  margin-bottom: 1rem;
+}
+
+.chart-placeholder {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  height: 200px;
+}
+
+.chart-bars {
+  display: flex;
+  align-items: end;
+  justify-content: space-around;
+  height: 100%;
+}
+
+.chart-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.bar {
+  background: linear-gradient(to top, #1e3c72, #2a5298);
+  width: 30px;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.3s ease;
+}
+
+.bar-label {
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  font-weight: 500;
+}
+
+.month-label {
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+  color: #666;
+}
+
 .cashflow-content {
   display: flex;
   flex-direction: column;
@@ -1849,7 +2041,6 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   color: #dc2626;
 }
 
-/* Relatórios */
 .reports-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -1899,7 +2090,6 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   font-weight: 500;
 }
 
-/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1955,9 +2145,9 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   border-top: 1px solid #e2e8f0;
 }
 
-/* Formulários */
 .payment-form,
-.payment-registration-form {
+.payment-registration-form,
+.expense-form {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -2021,7 +2211,6 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   cursor: pointer;
 }
 
-/* Detalhes do Pagamento */
 .payment-details {
   background: #f8fafc;
   padding: 1.5rem;
@@ -2045,6 +2234,11 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
 }
 
 .overdue {
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.overdue-text {
   color: #dc2626;
   font-weight: bold;
 }

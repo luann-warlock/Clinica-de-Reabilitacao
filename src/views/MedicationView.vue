@@ -378,7 +378,6 @@ export default {
         administeredBy: '',
         observations: '',
       },
-      // 🆕 VARIÁVEIS DE EDIÇÃO ADICIONADAS
       isEditing: false,
       editingMedicationId: null,
       newPrescription: this.getEmptyPrescription(),
@@ -456,7 +455,6 @@ export default {
     filteredMedications() {
       let filtered = this.medications
 
-      // Filtro por tipo
       if (this.currentFilter !== 'all') {
         switch (this.currentFilter) {
           case 'pending':
@@ -474,7 +472,6 @@ export default {
         }
       }
 
-      // Filtro por busca
       if (this.searchTerm) {
         const term = this.searchTerm.toLowerCase()
         filtered = filtered.filter(med => 
@@ -510,9 +507,6 @@ export default {
     },
 
     editPrescription(medication) {
-      console.log('Editando medicação:', medication)
-      
-      // Preenche o formulário com os dados da medicação selecionada
       this.newPrescription = {
         patientId: medication.patientId.toString(),
         medicationName: medication.medicationName,
@@ -525,14 +519,9 @@ export default {
         observations: medication.observations || ''
       }
       
-      // Marca que estamos no modo EDIÇÃO
       this.isEditing = true
       this.editingMedicationId = medication.id
-      
-      // Abre o modal do formulário
       this.showNewPrescription = true
-      
-      console.log('Formulário preenchido para edição')
     },
 
     closeNewPrescription() {
@@ -543,13 +532,11 @@ export default {
     },
 
     savePrescription() {
-      // Validar dados
       if (!this.newPrescription.patientId) {
         alert('Por favor, selecione um paciente.')
         return
       }
 
-      // Encontrar dados do paciente
       const patient = this.patients.find(p => p.id == this.newPrescription.patientId)
       if (!patient) {
         alert('Paciente não encontrado.')
@@ -557,7 +544,6 @@ export default {
       }
 
       if (this.isEditing) {
-        // 🔄 MODO EDIÇÃO - Atualizar medicação existente
         const index = this.medications.findIndex(m => m.id === this.editingMedicationId)
         if (index !== -1) {
           this.medications[index] = {
@@ -574,11 +560,6 @@ export default {
           alert(`✅ Prescrição de ${this.newPrescription.medicationName} atualizada com sucesso!`)
         }
       } else {
-        // ➕ MODO CRIAÇÃO - Criar nova prescrição
-        const lastRecord = this.medications[this.medications.length - 1]
-        const lastNumber = parseInt(lastRecord.recordNumber?.split('-')[1] || '0')
-        const newRecordNumber = `2024-${String(lastNumber + 1).padStart(3, '0')}`
-
         const newMedication = {
           id: this.medications.length + 1,
           patientId: parseInt(this.newPrescription.patientId),
@@ -600,7 +581,6 @@ export default {
         alert(`✅ Prescrição criada com sucesso para ${patient.name}!`)
       }
 
-      // Fechar modal e resetar
       this.closeNewPrescription()
     },
 
@@ -657,7 +637,6 @@ export default {
       const medTime = new Date()
       medTime.setHours(parseInt(hours), parseInt(minutes), 0, 0)
       
-      // Considera urgente se está atrasada até 1 hora
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
       return medTime <= oneHourAgo
     },
@@ -731,7 +710,6 @@ Observações: ${medication.observations || 'Nenhuma'}
         return
       }
 
-      // Atualizar a medicação como administrada
       const index = this.medications.findIndex(m => m.id === this.administeringMedication.id)
       if (index !== -1) {
         const now = new Date()
@@ -762,7 +740,6 @@ Observações: ${medication.observations || 'Nenhuma'}
   min-height: 100vh;
 }
 
-/* Header */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -818,7 +795,6 @@ Observações: ${medication.observations || 'Nenhuma'}
   background: #e2e8f0;
 }
 
-/* Alertas */
 .alerts-section {
   display: flex;
   flex-direction: column;
@@ -844,7 +820,6 @@ Observações: ${medication.observations || 'Nenhuma'}
   color: #ea580c;
 }
 
-/* Estatísticas Rápidas */
 .quick-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -887,7 +862,6 @@ Observações: ${medication.observations || 'Nenhuma'}
   font-weight: 500;
 }
 
-/* Filtros */
 .filters-section {
   background: white;
   padding: 1.5rem;
@@ -925,7 +899,6 @@ Observações: ${medication.observations || 'Nenhuma'}
   font-size: 1rem;
 }
 
-/* Tabela */
 .medications-table {
   background: white;
   border-radius: 10px;
@@ -964,7 +937,6 @@ Observações: ${medication.observations || 'Nenhuma'}
   border-left: 4px solid #dc2626;
 }
 
-/* Badges e Status */
 .type-badge, .status-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 15px;
@@ -1016,7 +988,6 @@ Observações: ${medication.observations || 'Nenhuma'}
   font-weight: bold;
 }
 
-/* Botões de Ação */
 .action-btn {
   padding: 0.5rem 1rem;
   border: none;
@@ -1048,7 +1019,6 @@ Observações: ${medication.observations || 'Nenhuma'}
   color: #92400e;
 }
 
-/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1108,7 +1078,6 @@ Observações: ${medication.observations || 'Nenhuma'}
   border-top: 1px solid #e2e8f0;
 }
 
-/* Formulários */
 .prescription-form {
   display: flex;
   flex-direction: column;
