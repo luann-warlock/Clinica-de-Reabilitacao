@@ -7,8 +7,12 @@
         <p>Prescrição eletrônica, dispensação controlada e administração de medicamentos</p>
       </div>
       <div class="header-actions">
-        <button class="btn-primary" @click="showNewPrescription = true">📝 Nova Prescrição</button>
-        <button class="btn-secondary" @click="showTodayMedications">📋 Medicações de Hoje</button>
+        <button class="btn-primary" @click="openNewPrescription()">
+          📝 Nova Prescrição
+        </button>
+        <button class="btn-secondary" @click="showTodayMedications">
+          📋 Medicações de Hoje
+        </button>
       </div>
     </div>
 
@@ -71,12 +75,12 @@
         </select>
       </div>
       <div class="search-box">
-        <input
-          type="text"
+        <input 
+          type="text" 
           v-model="searchTerm"
           placeholder="Buscar por paciente, medicamento ou prescrição..."
           class="search-input"
-        />
+        >
       </div>
     </div>
 
@@ -93,28 +97,30 @@
           <div class="table-cell">Ações</div>
         </div>
       </div>
-
+      
       <div class="table-body">
-        <div
-          v-for="med in filteredMedications"
+        <div 
+          v-for="med in filteredMedications" 
           :key="med.id"
           :class="['table-row', { 'urgent-row': isUrgent(med) }]"
         >
           <div class="table-cell">
             <strong>{{ med.patientName }}</strong>
-            <br />
+            <br>
             <small>Pront: {{ med.patientRecord }}</small>
           </div>
           <div class="table-cell">
             <strong>{{ med.medicationName }}</strong>
-            <br />
+            <br>
             <small>{{ med.dosage }}</small>
           </div>
           <div class="table-cell">
             <div class="time-info">
               <span class="time-badge">{{ med.scheduledTime }}</span>
-              <br />
-              <small v-if="med.administrationTime"> Admin: {{ med.administrationTime }} </small>
+              <br>
+              <small v-if="med.administrationTime">
+                Admin: {{ med.administrationTime }}
+              </small>
             </div>
           </div>
           <div class="table-cell">
@@ -126,46 +132,54 @@
             <span :class="['status-badge', `status-${med.status}`]">
               {{ getStatusLabel(med.status) }}
             </span>
-            <br />
-            <small v-if="med.administeredBy"> Por: {{ med.administeredBy }} </small>
+            <br>
+            <small v-if="med.administeredBy">
+              Por: {{ med.administeredBy }}
+            </small>
           </div>
           <div class="table-cell">
             {{ med.prescribedBy }}
-            <br />
+            <br>
             <small>{{ formatDate(med.prescriptionDate) }}</small>
           </div>
           <div class="table-cell">
-            <button
+            <button 
               v-if="med.status === 'pending' && isDue(med)"
               class="action-btn administer-btn"
               @click="administerMedication(med)"
             >
               💊 Administrar
             </button>
-            <button
+            <button 
               v-else-if="med.status === 'pending'"
               class="action-btn schedule-btn"
               @click="viewDetails(med)"
             >
               ⏰ Agendada
             </button>
-            <button v-else class="action-btn view-btn" @click="viewDetails(med)">
+            <button 
+              v-else
+              class="action-btn view-btn"
+              @click="viewDetails(med)"
+            >
               👁️ Detalhes
             </button>
-            <button class="action-btn edit-btn" @click="editPrescription(med)">✏️ Editar</button>
+            <button class="action-btn edit-btn" @click="editPrescription(med)">
+              ✏️ Editar
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Modal de Nova Prescrição -->
+    <!-- Modal de Nova/Editar Prescrição -->
     <div v-if="showNewPrescription" class="modal-overlay">
       <div class="modal-content large-modal">
         <div class="modal-header">
-          <h2>📝 Nova Prescrição Médica</h2>
+          <h2>{{ isEditing ? '✏️ Editar Prescrição' : '📝 Nova Prescrição Médica' }}</h2>
           <button class="close-btn" @click="closeNewPrescription()">×</button>
         </div>
-
+        
         <div class="modal-body">
           <form @submit.prevent="savePrescription" class="prescription-form">
             <div class="form-section">
@@ -175,19 +189,23 @@
                   <label>Paciente *</label>
                   <select v-model="newPrescription.patientId" required>
                     <option value="">Selecione um paciente</option>
-                    <option v-for="patient in patients" :key="patient.id" :value="patient.id">
+                    <option 
+                      v-for="patient in patients" 
+                      :key="patient.id" 
+                      :value="patient.id"
+                    >
                       {{ patient.name }} ({{ patient.recordNumber }})
                     </option>
                   </select>
                 </div>
                 <div class="form-group">
                   <label>Prescritor *</label>
-                  <input
-                    type="text"
-                    v-model="newPrescription.prescribedBy"
+                  <input 
+                    type="text" 
+                    v-model="newPrescription.prescribedBy" 
                     placeholder="Dr. Nome Completo"
                     required
-                  />
+                  >
                 </div>
               </div>
             </div>
@@ -197,24 +215,24 @@
               <div class="form-row">
                 <div class="form-group">
                   <label>Medicamento *</label>
-                  <input
-                    type="text"
-                    v-model="newPrescription.medicationName"
+                  <input 
+                    type="text" 
+                    v-model="newPrescription.medicationName" 
                     placeholder="Nome do medicamento"
                     required
-                  />
+                  >
                 </div>
                 <div class="form-group">
                   <label>Dosagem *</label>
-                  <input
-                    type="text"
-                    v-model="newPrescription.dosage"
+                  <input 
+                    type="text" 
+                    v-model="newPrescription.dosage" 
                     placeholder="Ex: 50mg, 10ml"
                     required
-                  />
+                  >
                 </div>
               </div>
-
+              
               <div class="form-row">
                 <div class="form-group">
                   <label>Via de Administração *</label>
@@ -244,7 +262,11 @@
               <div class="form-row">
                 <div class="form-group">
                   <label>Horário Programado *</label>
-                  <input type="time" v-model="newPrescription.scheduledTime" required />
+                  <input 
+                    type="time" 
+                    v-model="newPrescription.scheduledTime" 
+                    required
+                  >
                 </div>
                 <div class="form-group">
                   <label>Frequência *</label>
@@ -259,12 +281,12 @@
                   </select>
                 </div>
               </div>
-
+              
               <div class="form-row">
                 <div class="form-group full-width">
                   <label>Observações</label>
-                  <textarea
-                    v-model="newPrescription.observations"
+                  <textarea 
+                    v-model="newPrescription.observations" 
                     rows="3"
                     placeholder="Observações específicas sobre a administração..."
                   ></textarea>
@@ -276,7 +298,9 @@
               <button type="button" class="btn-cancel" @click="closeNewPrescription()">
                 Cancelar
               </button>
-              <button type="submit" class="btn-save">💾 Salvar Prescrição</button>
+              <button type="submit" class="btn-save">
+                💾 {{ isEditing ? 'Atualizar Prescrição' : 'Salvar Prescrição' }}
+              </button>
             </div>
           </form>
         </div>
@@ -290,7 +314,7 @@
           <h2>💊 Administrar Medicação</h2>
           <button class="close-btn" @click="closeAdministerModal()">×</button>
         </div>
-
+        
         <div class="modal-body" v-if="administeringMedication">
           <div class="administration-details">
             <div class="detail-item">
@@ -305,21 +329,21 @@
             <div class="detail-item">
               <strong>Via:</strong> {{ getRouteLabel(administeringMedication.administrationRoute) }}
             </div>
-
+            
             <div class="administration-form">
               <div class="form-group">
                 <label>Responsável pela Administração *</label>
-                <input
-                  type="text"
+                <input 
+                  type="text" 
                   v-model="administrationData.administeredBy"
                   placeholder="Seu nome completo"
                   required
-                />
+                >
               </div>
-
+              
               <div class="form-group">
                 <label>Observações da Administração</label>
-                <textarea
+                <textarea 
                   v-model="administrationData.observations"
                   rows="3"
                   placeholder="Registre qualquer observação relevante..."
@@ -354,23 +378,26 @@ export default {
         administeredBy: '',
         observations: '',
       },
+      // 🆕 VARIÁVEIS DE EDIÇÃO ADICIONADAS
+      isEditing: false,
+      editingMedicationId: null,
       newPrescription: this.getEmptyPrescription(),
       patients: [
         {
           id: 1,
           name: 'João Silva Santos',
-          recordNumber: '2024-001',
+          recordNumber: '2024-001'
         },
         {
           id: 2,
           name: 'Maria Oliveira Costa',
-          recordNumber: '2024-002',
+          recordNumber: '2024-002'
         },
         {
           id: 3,
           name: 'Carlos Alberto Souza',
-          recordNumber: '2024-003',
-        },
+          recordNumber: '2024-003'
+        }
       ],
       medications: [
         {
@@ -387,7 +414,7 @@ export default {
           status: 'pending',
           prescribedBy: 'Dr. Silva',
           prescriptionDate: '2024-01-15',
-          observations: 'Monitorar sedação',
+          observations: 'Monitorar sedação'
         },
         {
           id: 2,
@@ -405,7 +432,7 @@ export default {
           prescriptionDate: '2024-01-16',
           administeredBy: 'Enf. Ana',
           administrationTime: '14:05',
-          administrationObservations: 'Paciente colaborativo',
+          administrationObservations: 'Paciente colaborativo'
         },
         {
           id: 3,
@@ -420,9 +447,9 @@ export default {
           frequency: 'every-6h',
           status: 'pending',
           prescribedBy: 'Dr. Souza',
-          prescriptionDate: '2024-01-17',
-        },
-      ],
+          prescriptionDate: '2024-01-17'
+        }
+      ]
     }
   },
   computed: {
@@ -433,13 +460,13 @@ export default {
       if (this.currentFilter !== 'all') {
         switch (this.currentFilter) {
           case 'pending':
-            filtered = filtered.filter((med) => med.status === 'pending')
+            filtered = filtered.filter(med => med.status === 'pending')
             break
           case 'administered':
-            filtered = filtered.filter((med) => med.status === 'administered')
+            filtered = filtered.filter(med => med.status === 'administered')
             break
           case 'controlled':
-            filtered = filtered.filter((med) => med.medicationType === 'controlled')
+            filtered = filtered.filter(med => med.medicationType === 'controlled')
             break
           case 'today':
             filtered = this.getTodayMedications()
@@ -450,16 +477,15 @@ export default {
       // Filtro por busca
       if (this.searchTerm) {
         const term = this.searchTerm.toLowerCase()
-        filtered = filtered.filter(
-          (med) =>
-            med.patientName.toLowerCase().includes(term) ||
-            med.medicationName.toLowerCase().includes(term) ||
-            med.patientRecord.toLowerCase().includes(term),
+        filtered = filtered.filter(med => 
+          med.patientName.toLowerCase().includes(term) ||
+          med.medicationName.toLowerCase().includes(term) ||
+          med.patientRecord.toLowerCase().includes(term)
         )
       }
 
       return filtered
-    },
+    }
   },
   methods: {
     getEmptyPrescription() {
@@ -472,39 +498,140 @@ export default {
         scheduledTime: '',
         frequency: 'single-dose',
         prescribedBy: '',
-        observations: '',
+        observations: ''
       }
     },
+    
+    openNewPrescription() {
+      this.isEditing = false
+      this.editingMedicationId = null
+      this.newPrescription = this.getEmptyPrescription()
+      this.showNewPrescription = true
+    },
+
+    editPrescription(medication) {
+      console.log('Editando medicação:', medication)
+      
+      // Preenche o formulário com os dados da medicação selecionada
+      this.newPrescription = {
+        patientId: medication.patientId.toString(),
+        medicationName: medication.medicationName,
+        dosage: medication.dosage,
+        administrationRoute: medication.administrationRoute,
+        medicationType: medication.medicationType,
+        scheduledTime: medication.scheduledTime,
+        frequency: medication.frequency,
+        prescribedBy: medication.prescribedBy,
+        observations: medication.observations || ''
+      }
+      
+      // Marca que estamos no modo EDIÇÃO
+      this.isEditing = true
+      this.editingMedicationId = medication.id
+      
+      // Abre o modal do formulário
+      this.showNewPrescription = true
+      
+      console.log('Formulário preenchido para edição')
+    },
+
+    closeNewPrescription() {
+      this.showNewPrescription = false
+      this.isEditing = false
+      this.editingMedicationId = null
+      this.newPrescription = this.getEmptyPrescription()
+    },
+
+    savePrescription() {
+      // Validar dados
+      if (!this.newPrescription.patientId) {
+        alert('Por favor, selecione um paciente.')
+        return
+      }
+
+      // Encontrar dados do paciente
+      const patient = this.patients.find(p => p.id == this.newPrescription.patientId)
+      if (!patient) {
+        alert('Paciente não encontrado.')
+        return
+      }
+
+      if (this.isEditing) {
+        // 🔄 MODO EDIÇÃO - Atualizar medicação existente
+        const index = this.medications.findIndex(m => m.id === this.editingMedicationId)
+        if (index !== -1) {
+          this.medications[index] = {
+            ...this.medications[index],
+            medicationName: this.newPrescription.medicationName,
+            dosage: this.newPrescription.dosage,
+            administrationRoute: this.newPrescription.administrationRoute,
+            medicationType: this.newPrescription.medicationType,
+            scheduledTime: this.newPrescription.scheduledTime,
+            frequency: this.newPrescription.frequency,
+            prescribedBy: this.newPrescription.prescribedBy,
+            observations: this.newPrescription.observations
+          }
+          alert(`✅ Prescrição de ${this.newPrescription.medicationName} atualizada com sucesso!`)
+        }
+      } else {
+        // ➕ MODO CRIAÇÃO - Criar nova prescrição
+        const lastRecord = this.medications[this.medications.length - 1]
+        const lastNumber = parseInt(lastRecord.recordNumber?.split('-')[1] || '0')
+        const newRecordNumber = `2024-${String(lastNumber + 1).padStart(3, '0')}`
+
+        const newMedication = {
+          id: this.medications.length + 1,
+          patientId: parseInt(this.newPrescription.patientId),
+          patientName: patient.name,
+          patientRecord: patient.recordNumber,
+          medicationName: this.newPrescription.medicationName,
+          dosage: this.newPrescription.dosage,
+          administrationRoute: this.newPrescription.administrationRoute,
+          medicationType: this.newPrescription.medicationType,
+          scheduledTime: this.newPrescription.scheduledTime,
+          frequency: this.newPrescription.frequency,
+          status: 'pending',
+          prescribedBy: this.newPrescription.prescribedBy,
+          prescriptionDate: new Date().toISOString().split('T')[0],
+          observations: this.newPrescription.observations
+        }
+
+        this.medications.push(newMedication)
+        alert(`✅ Prescrição criada com sucesso para ${patient.name}!`)
+      }
+
+      // Fechar modal e resetar
+      this.closeNewPrescription()
+    },
+
     getTodayMedications() {
-      return this.medications.filter((med) => {
-        return (
-          med.status === 'pending' ||
-          (med.status === 'administered' && this.isToday(med.administrationTime))
-        )
+      return this.medications.filter(med => {
+        return med.status === 'pending' || 
+               (med.status === 'administered' && this.isToday(med.administrationTime))
       })
     },
     getControlledMedications() {
-      return this.medications.filter((med) => med.medicationType === 'controlled')
+      return this.medications.filter(med => med.medicationType === 'controlled')
     },
     getPendingCount() {
-      return this.medications.filter((med) => med.status === 'pending').length
+      return this.medications.filter(med => med.status === 'pending').length
     },
     getAdministeredCount() {
-      return this.medications.filter(
-        (med) => med.status === 'administered' && this.isToday(med.administrationTime),
+      return this.medications.filter(med => 
+        med.status === 'administered' && this.isToday(med.administrationTime)
       ).length
     },
     getNext2HoursMedications() {
       const now = new Date()
       const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000)
-
-      return this.medications.filter((med) => {
+      
+      return this.medications.filter(med => {
         if (med.status !== 'pending') return false
-
+        
         const [hours, minutes] = med.scheduledTime.split(':')
         const medTime = new Date()
         medTime.setHours(parseInt(hours), parseInt(minutes), 0, 0)
-
+        
         return medTime > now && medTime <= twoHoursLater
       })
     },
@@ -519,17 +646,17 @@ export default {
       const [hours, minutes] = medication.scheduledTime.split(':')
       const medTime = new Date()
       medTime.setHours(parseInt(hours), parseInt(minutes), 0, 0)
-
+      
       return now >= medTime
     },
     isUrgent(medication) {
       if (medication.status !== 'pending') return false
-
+      
       const now = new Date()
       const [hours, minutes] = medication.scheduledTime.split(':')
       const medTime = new Date()
       medTime.setHours(parseInt(hours), parseInt(minutes), 0, 0)
-
+      
       // Considera urgente se está atrasada até 1 hora
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
       return medTime <= oneHourAgo
@@ -539,7 +666,7 @@ export default {
         routine: 'Rotina',
         controlled: 'Controlado',
         antibiotic: 'Antibiótico',
-        psychotropic: 'Psicotrópico',
+        psychotropic: 'Psicotrópico'
       }
       return labels[type] || type
     },
@@ -547,7 +674,7 @@ export default {
       const labels = {
         pending: 'Pendente',
         administered: 'Administrada',
-        cancelled: 'Cancelada',
+        cancelled: 'Cancelada'
       }
       return labels[status] || status
     },
@@ -558,7 +685,7 @@ export default {
         intramuscular: 'Intramuscular',
         subcutanea: 'Subcutânea',
         topica: 'Tópica',
-        inalatoria: 'Inalatória',
+        inalatoria: 'Inalatória'
       }
       return labels[route] || route
     },
@@ -587,20 +714,12 @@ Observações: ${medication.observations || 'Nenhuma'}
       this.administeringMedication = { ...medication }
       this.administrationData = {
         administeredBy: '',
-        observations: '',
+        observations: ''
       }
       this.showAdministerModal = true
     },
-    editPrescription(medication) {
-      // Para simplificar, vamos apenas mostrar uma mensagem
-      alert(`Editando prescrição de ${medication.medicationName} para ${medication.patientName}`)
-    },
     showTodayMedications() {
       this.currentFilter = 'today'
-    },
-    closeNewPrescription() {
-      this.showNewPrescription = false
-      this.newPrescription = this.getEmptyPrescription()
     },
     closeAdministerModal() {
       this.showAdministerModal = false
@@ -613,65 +732,24 @@ Observações: ${medication.observations || 'Nenhuma'}
       }
 
       // Atualizar a medicação como administrada
-      const index = this.medications.findIndex((m) => m.id === this.administeringMedication.id)
+      const index = this.medications.findIndex(m => m.id === this.administeringMedication.id)
       if (index !== -1) {
         const now = new Date()
         const timeString = now.toTimeString().substring(0, 5)
-
+        
         this.medications[index] = {
           ...this.medications[index],
           status: 'administered',
           administeredBy: this.administrationData.administeredBy,
           administrationTime: timeString,
-          administrationObservations: this.administrationData.observations,
+          administrationObservations: this.administrationData.observations
         }
 
-        alert(
-          `Medicação administrada com sucesso!\nRegistrado por: ${this.administrationData.administeredBy}`,
-        )
+        alert(`Medicação administrada com sucesso!\nRegistrado por: ${this.administrationData.administeredBy}`)
         this.closeAdministerModal()
       }
-    },
-    savePrescription() {
-      // Validar dados
-      if (!this.newPrescription.patientId) {
-        alert('Por favor, selecione um paciente.')
-        return
-      }
-
-      // Encontrar dados do paciente
-      const patient = this.patients.find((p) => p.id == this.newPrescription.patientId)
-      if (!patient) {
-        alert('Paciente não encontrado.')
-        return
-      }
-
-      // Criar nova prescrição
-      const newMedication = {
-        id: this.medications.length + 1,
-        patientId: this.newPrescription.patientId,
-        patientName: patient.name,
-        patientRecord: patient.recordNumber,
-        medicationName: this.newPrescription.medicationName,
-        dosage: this.newPrescription.dosage,
-        administrationRoute: this.newPrescription.administrationRoute,
-        medicationType: this.newPrescription.medicationType,
-        scheduledTime: this.newPrescription.scheduledTime,
-        frequency: this.newPrescription.frequency,
-        status: 'pending',
-        prescribedBy: this.newPrescription.prescribedBy,
-        prescriptionDate: new Date().toISOString().split('T')[0],
-        observations: this.newPrescription.observations,
-      }
-
-      // Adicionar à lista
-      this.medications.push(newMedication)
-
-      // Fechar modal e resetar
-      this.closeNewPrescription()
-      alert(`Prescrição criada com sucesso para ${patient.name}!`)
-    },
-  },
+    }
+  }
 }
 </script>
 
@@ -693,7 +771,7 @@ Observações: ${medication.observations || 'Nenhuma'}
   background: white;
   padding: 2rem;
   border-radius: 15px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
 }
 
 .header-content h1 {
@@ -778,7 +856,7 @@ Observações: ${medication.observations || 'Nenhuma'}
   background: white;
   padding: 1.5rem;
   border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -814,7 +892,7 @@ Observações: ${medication.observations || 'Nenhuma'}
   background: white;
   padding: 1.5rem;
   border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
   margin-bottom: 2rem;
   display: flex;
   gap: 2rem;
@@ -851,7 +929,7 @@ Observações: ${medication.observations || 'Nenhuma'}
 .medications-table {
   background: white;
   border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
   overflow: hidden;
 }
 
@@ -887,8 +965,7 @@ Observações: ${medication.observations || 'Nenhuma'}
 }
 
 /* Badges e Status */
-.type-badge,
-.status-badge {
+.type-badge, .status-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 15px;
   font-size: 0.8rem;
@@ -978,7 +1055,7 @@ Observações: ${medication.observations || 'Nenhuma'}
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0,0,0,0.5);
   display: flex;
   align-items: center;
   justify-content: center;

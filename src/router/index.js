@@ -34,6 +34,16 @@ const routes = [
     name: 'medication',
     component: () => import('../views/MedicationView.vue'),
   },
+  {
+    path: '/medical-record',
+    name: 'medical-record',
+    component: () => import('../views/MedicalRecordView.vue'),
+  },
+  {
+    path: '/financial',
+    name: 'financial',
+    component: () => import('../views/FinancialView.vue'),
+  },
 ]
 
 const router = createRouter({

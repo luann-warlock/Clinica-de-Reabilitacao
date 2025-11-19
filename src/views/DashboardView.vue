@@ -200,7 +200,7 @@ export default {
         admission: '/admission',
         'medical-record': '/medical-record',
         'treatment-plan': '/treatment-plan',
-        medication: '/medication', // ← ADICIONE ESTA LINHA
+        medication: '/medication', //
         beds: '/beds',
         activities: '/activities',
         financial: '/financial',
