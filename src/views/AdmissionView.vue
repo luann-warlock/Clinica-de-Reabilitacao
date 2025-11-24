@@ -167,6 +167,8 @@
 </template>
 
 <script>
+import api from '@/services/api'
+
 export default {
   name: 'AdmissionView',
   data() {
@@ -189,41 +191,7 @@ export default {
         admissionType: 'voluntaria',
         mainSubstance: 'alcool',
       },
-      patients: [
-        {
-          id: 1,
-          recordNumber: '2024-001',
-          name: 'João Silva Santos',
-          age: 34,
-          gender: 'masculino',
-          cpf: '12345678900',
-          admissionType: 'voluntaria',
-          admissionDate: '2024-01-15',
-          status: 'triagem',
-        },
-        {
-          id: 2,
-          recordNumber: '2024-002',
-          name: 'Maria Oliveira Costa',
-          age: 28,
-          gender: 'feminino',
-          cpf: '98765432100',
-          admissionType: 'involuntaria',
-          admissionDate: '2024-01-16',
-          status: 'internado',
-        },
-        {
-          id: 3,
-          recordNumber: '2024-003',
-          name: 'Carlos Alberto Souza',
-          age: 45,
-          gender: 'masculino',
-          cpf: '45678912300',
-          admissionType: 'compulsoria',
-          admissionDate: '2024-01-17',
-          status: 'triagem',
-        },
-      ],
+      patients: []
     }
   },
   computed: {
@@ -254,18 +222,60 @@ export default {
     },
   },
   methods: {
+    async loadPatients() {
+      try {
+        const response = await api.get('/patients')
+        this.patients = response.data
+      } catch (error) {
+        console.error('Erro ao carregar pacientes:', error)
+        alert('Erro ao carregar lista de pacientes')
+      }
+    },
+    
+    async savePatient() {
+      try {
+        // Calcular idade a partir da data de nascimento
+        const birthDate = new Date(this.newPatient.birthDate)
+        const today = new Date()
+        const age = today.getFullYear() - birthDate.getFullYear()
+        
+        const patientData = {
+          ...this.newPatient,
+          age: age
+        }
+
+        const response = await api.post('/patients', patientData)
+        
+        // Adicionar à lista local
+        this.patients.unshift(response.data)
+
+        // Fechar modal e resetar form
+        this.showNewPatientForm = false
+        this.resetNewPatientForm()
+
+        alert(`Paciente ${response.data.name} admitido com sucesso!\nProntuário: ${response.data.recordNumber}`)
+      } catch (error) {
+        console.error('Erro ao salvar paciente:', error)
+        alert(error.response?.data?.error || 'Erro ao salvar paciente')
+      }
+    },
+
     getPatientsByType(type) {
       return this.patients.filter((patient) => patient.admissionType === type)
     },
+    
     getPendingAdmissions() {
       return this.patients.filter((patient) => patient.status === 'triagem')
     },
+    
     formatCPF(cpf) {
       return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
     },
+    
     formatDate(date) {
       return new Date(date).toLocaleDateString('pt-BR')
     },
+    
     getAdmissionTypeLabel(type) {
       const labels = {
         voluntaria: 'Voluntária',
@@ -274,6 +284,7 @@ export default {
       }
       return labels[type] || type
     },
+    
     getStatusLabel(status) {
       const labels = {
         triagem: 'Em Triagem',
@@ -282,8 +293,8 @@ export default {
       }
       return labels[status] || status
     },
+    
     viewPatient(patient) {
-      // Visualização simples e funcional
       const details = `
 📋 PRONTUÁRIO: ${patient.recordNumber}
 👤 NOME: ${patient.name}
@@ -297,6 +308,7 @@ export default {
 
       alert(details)
     },
+    
     editPatient(patient) {
       // Edição simples - preenche o formulário com dados do paciente
       this.newPatient = {
@@ -314,42 +326,7 @@ export default {
       // Abre o modal de formulário
       this.showNewPatientForm = true
     },
-    savePatient() {
-      // Gerar número de prontuário sequencial
-      const lastRecord = this.patients[this.patients.length - 1]
-      const lastNumber = parseInt(lastRecord.recordNumber.split('-')[1])
-      const newRecordNumber = `2024-${String(lastNumber + 1).padStart(3, '0')}`
-
-      // Calcular idade a partir da data de nascimento
-      const birthDate = new Date(this.newPatient.birthDate)
-      const today = new Date()
-      const age = today.getFullYear() - birthDate.getFullYear()
-
-      // Criar novo paciente
-      const newPatient = {
-        id: this.patients.length + 1,
-        recordNumber: newRecordNumber,
-        name: this.newPatient.name,
-        age: age,
-        gender: this.newPatient.gender,
-        cpf: this.newPatient.cpf,
-        admissionType: this.newPatient.admissionType,
-        admissionDate: new Date().toISOString().split('T')[0],
-        status: 'triagem',
-        mainSubstance: this.newPatient.mainSubstance,
-      }
-
-      // Adicionar à lista
-      this.patients.push(newPatient)
-
-      // Fechar modal e resetar form
-      this.showNewPatientForm = false
-      this.resetNewPatientForm()
-
-      alert(
-        `Paciente ${newPatient.name} ${this.patients.length > 3 ? 'atualizado' : 'admitido'} com sucesso!\nProntuário: ${newPatient.recordNumber}`,
-      )
-    },
+    
     resetNewPatientForm() {
       this.newPatient = {
         name: '',
@@ -361,6 +338,9 @@ export default {
       }
     },
   },
+  mounted() {
+    this.loadPatients()
+  }
 }
 </script>
 

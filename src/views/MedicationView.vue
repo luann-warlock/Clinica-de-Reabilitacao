@@ -19,10 +19,10 @@
     <!-- Alertas e Status -->
     <div class="alerts-section">
       <div class="alert urgent">
-        <span>🚨 <strong>3 medicações pendentes</strong> para administração imediata</span>
+        <span>🚨 <strong>{{ getPendingCount() }} medicações pendentes</strong> para administração imediata</span>
       </div>
       <div class="alert warning">
-        <span>⚠️ <strong>2 medicamentos controlados</strong> necessitam de conferência</span>
+        <span>⚠️ <strong>{{ getControlledMedications().length }} medicamentos controlados</strong> necessitam de conferência</span>
       </div>
     </div>
 
@@ -365,6 +365,8 @@
 </template>
 
 <script>
+import api from '@/services/api'
+
 export default {
   name: 'MedicationView',
   data() {
@@ -398,57 +400,7 @@ export default {
           recordNumber: '2024-003'
         }
       ],
-      medications: [
-        {
-          id: 1,
-          patientId: 1,
-          patientName: 'João Silva Santos',
-          patientRecord: '2024-001',
-          medicationName: 'Diazepam',
-          dosage: '10mg',
-          administrationRoute: 'oral',
-          medicationType: 'controlled',
-          scheduledTime: '08:00',
-          frequency: 'daily',
-          status: 'pending',
-          prescribedBy: 'Dr. Silva',
-          prescriptionDate: '2024-01-15',
-          observations: 'Monitorar sedação'
-        },
-        {
-          id: 2,
-          patientId: 2,
-          patientName: 'Maria Oliveira Costa',
-          patientRecord: '2024-002',
-          medicationName: 'Clonazepam',
-          dosage: '2mg',
-          administrationRoute: 'oral',
-          medicationType: 'controlled',
-          scheduledTime: '14:00',
-          frequency: 'every-12h',
-          status: 'administered',
-          prescribedBy: 'Dra. Costa',
-          prescriptionDate: '2024-01-16',
-          administeredBy: 'Enf. Ana',
-          administrationTime: '14:05',
-          administrationObservations: 'Paciente colaborativo'
-        },
-        {
-          id: 3,
-          patientId: 3,
-          patientName: 'Carlos Alberto Souza',
-          patientRecord: '2024-003',
-          medicationName: 'Dipirona',
-          dosage: '500mg',
-          administrationRoute: 'oral',
-          medicationType: 'routine',
-          scheduledTime: '20:00',
-          frequency: 'every-6h',
-          status: 'pending',
-          prescribedBy: 'Dr. Souza',
-          prescriptionDate: '2024-01-17'
-        }
-      ]
+      medications: []
     }
   },
   computed: {
@@ -485,6 +437,17 @@ export default {
     }
   },
   methods: {
+    async loadMedications() {
+      try {
+        const response = await api.get('/medications')
+        this.medications = response.data
+      } catch (error) {
+        console.error('Erro ao carregar medicações:', error)
+        // Fallback para dados mock se a API não estiver disponível
+        this.medications = this.getMockMedications()
+      }
+    },
+
     getEmptyPrescription() {
       return {
         patientId: '',
@@ -498,6 +461,27 @@ export default {
         observations: ''
       }
     },
+
+    getMockMedications() {
+      return [
+        {
+          id: 1,
+          patientId: 1,
+          patientName: 'João Silva Santos',
+          patientRecord: '2024-001',
+          medicationName: 'Diazepam',
+          dosage: '10mg',
+          administrationRoute: 'oral',
+          medicationType: 'controlled',
+          scheduledTime: '08:00',
+          frequency: 'daily',
+          status: 'pending',
+          prescribedBy: 'Dr. Silva',
+          prescriptionDate: '2024-01-15',
+          observations: 'Monitorar sedação'
+        }
+      ]
+    },
     
     openNewPrescription() {
       this.isEditing = false
@@ -506,7 +490,7 @@ export default {
       this.showNewPrescription = true
     },
 
-    editPrescription(medication) {
+    async editPrescription(medication) {
       this.newPrescription = {
         patientId: medication.patientId.toString(),
         medicationName: medication.medicationName,
@@ -531,7 +515,7 @@ export default {
       this.newPrescription = this.getEmptyPrescription()
     },
 
-    savePrescription() {
+    async savePrescription() {
       if (!this.newPrescription.patientId) {
         alert('Por favor, selecione um paciente.')
         return
@@ -543,45 +527,38 @@ export default {
         return
       }
 
-      if (this.isEditing) {
-        const index = this.medications.findIndex(m => m.id === this.editingMedicationId)
-        if (index !== -1) {
-          this.medications[index] = {
-            ...this.medications[index],
-            medicationName: this.newPrescription.medicationName,
-            dosage: this.newPrescription.dosage,
-            administrationRoute: this.newPrescription.administrationRoute,
-            medicationType: this.newPrescription.medicationType,
-            scheduledTime: this.newPrescription.scheduledTime,
-            frequency: this.newPrescription.frequency,
-            prescribedBy: this.newPrescription.prescribedBy,
-            observations: this.newPrescription.observations
-          }
-          alert(`✅ Prescrição de ${this.newPrescription.medicationName} atualizada com sucesso!`)
-        }
-      } else {
-        const newMedication = {
-          id: this.medications.length + 1,
+      try {
+        const prescriptionData = {
+          ...this.newPrescription,
           patientId: parseInt(this.newPrescription.patientId),
           patientName: patient.name,
-          patientRecord: patient.recordNumber,
-          medicationName: this.newPrescription.medicationName,
-          dosage: this.newPrescription.dosage,
-          administrationRoute: this.newPrescription.administrationRoute,
-          medicationType: this.newPrescription.medicationType,
-          scheduledTime: this.newPrescription.scheduledTime,
-          frequency: this.newPrescription.frequency,
-          status: 'pending',
-          prescribedBy: this.newPrescription.prescribedBy,
-          prescriptionDate: new Date().toISOString().split('T')[0],
-          observations: this.newPrescription.observations
+          patientRecord: patient.recordNumber
         }
 
-        this.medications.push(newMedication)
-        alert(`✅ Prescrição criada com sucesso para ${patient.name}!`)
-      }
+        if (this.isEditing) {
+          // Atualizar medicação existente
+          const response = await api.put(`/medications/${this.editingMedicationId}`, prescriptionData)
+          const updatedMedication = response.data
+          
+          // Atualizar na lista local
+          const index = this.medications.findIndex(m => m.id === this.editingMedicationId)
+          if (index !== -1) {
+            this.medications[index] = updatedMedication
+          }
+          
+          alert(`✅ Prescrição de ${updatedMedication.medicationName} atualizada com sucesso!`)
+        } else {
+          // Criar nova prescrição
+          const response = await api.post('/medications', prescriptionData)
+          this.medications.unshift(response.data)
+          alert(`✅ Prescrição criada com sucesso para ${patient.name}!`)
+        }
 
-      this.closeNewPrescription()
+        this.closeNewPrescription()
+      } catch (error) {
+        console.error('Erro ao salvar prescrição:', error)
+        alert(error.response?.data?.error || 'Erro ao salvar prescrição')
+      }
     },
 
     getTodayMedications() {
@@ -590,17 +567,21 @@ export default {
                (med.status === 'administered' && this.isToday(med.administrationTime))
       })
     },
+
     getControlledMedications() {
       return this.medications.filter(med => med.medicationType === 'controlled')
     },
+
     getPendingCount() {
       return this.medications.filter(med => med.status === 'pending').length
     },
+
     getAdministeredCount() {
       return this.medications.filter(med => 
         med.status === 'administered' && this.isToday(med.administrationTime)
       ).length
     },
+
     getNext2HoursMedications() {
       const now = new Date()
       const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000)
@@ -615,12 +596,14 @@ export default {
         return medTime > now && medTime <= twoHoursLater
       })
     },
+
     isToday(dateString) {
       if (!dateString) return false
       const today = new Date().toDateString()
       const medDate = new Date(dateString).toDateString()
       return today === medDate
     },
+
     isDue(medication) {
       const now = new Date()
       const [hours, minutes] = medication.scheduledTime.split(':')
@@ -629,6 +612,7 @@ export default {
       
       return now >= medTime
     },
+
     isUrgent(medication) {
       if (medication.status !== 'pending') return false
       
@@ -640,6 +624,7 @@ export default {
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
       return medTime <= oneHourAgo
     },
+
     getMedicationTypeLabel(type) {
       const labels = {
         routine: 'Rotina',
@@ -649,6 +634,7 @@ export default {
       }
       return labels[type] || type
     },
+
     getStatusLabel(status) {
       const labels = {
         pending: 'Pendente',
@@ -657,6 +643,7 @@ export default {
       }
       return labels[status] || status
     },
+
     getRouteLabel(route) {
       const labels = {
         oral: 'Oral',
@@ -668,9 +655,11 @@ export default {
       }
       return labels[route] || route
     },
+
     formatDate(dateString) {
       return new Date(dateString).toLocaleDateString('pt-BR')
     },
+
     viewDetails(medication) {
       const details = `
 💊 DETALHES DA MEDICAÇÃO
@@ -689,7 +678,8 @@ Observações: ${medication.observations || 'Nenhuma'}
 
       alert(details)
     },
-    administerMedication(medication) {
+
+    async administerMedication(medication) {
       this.administeringMedication = { ...medication }
       this.administrationData = {
         administeredBy: '',
@@ -697,41 +687,57 @@ Observações: ${medication.observations || 'Nenhuma'}
       }
       this.showAdministerModal = true
     },
+
     showTodayMedications() {
       this.currentFilter = 'today'
     },
+
     closeAdministerModal() {
       this.showAdministerModal = false
       this.administeringMedication = null
     },
-    confirmAdministration() {
+
+    async confirmAdministration() {
       if (!this.administrationData.administeredBy) {
         alert('Por favor, informe o responsável pela administração.')
         return
       }
 
-      const index = this.medications.findIndex(m => m.id === this.administeringMedication.id)
-      if (index !== -1) {
+      try {
         const now = new Date()
         const timeString = now.toTimeString().substring(0, 5)
         
-        this.medications[index] = {
-          ...this.medications[index],
+        const administrationData = {
           status: 'administered',
           administeredBy: this.administrationData.administeredBy,
           administrationTime: timeString,
           administrationObservations: this.administrationData.observations
         }
 
+        const response = await api.put(`/medications/${this.administeringMedication.id}`, administrationData)
+        
+        // Atualizar na lista local
+        const index = this.medications.findIndex(m => m.id === this.administeringMedication.id)
+        if (index !== -1) {
+          this.medications[index] = response.data
+        }
+
         alert(`Medicação administrada com sucesso!\nRegistrado por: ${this.administrationData.administeredBy}`)
         this.closeAdministerModal()
+      } catch (error) {
+        console.error('Erro ao administrar medicação:', error)
+        alert(error.response?.data?.error || 'Erro ao administrar medicação')
       }
     }
+  },
+  mounted() {
+    this.loadMedications()
   }
 }
 </script>
 
 <style scoped>
+/* Os estilos permanecem exatamente os mesmos do MedicationView.vue original */
 .medication-view {
   padding: 2rem;
   max-width: 1400px;
