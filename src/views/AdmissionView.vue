@@ -7,8 +7,8 @@
         <p>Controle de entrada, avaliação inicial e documentação legal</p>
       </div>
       <div class="header-actions">
-        <button class="btn-primary" @click="showNewPatientForm = true">➕ Nova Admissão</button>
-        <button class="btn-secondary">📊 Relatório de Admissões</button>
+        <button class="btn-primary" @click="showNewPatientForm = true; isEditing = false;">➕ Nova Admissão</button>
+        <button class="btn-secondary" @click="generateAdmissionsReport">📊 Relatório de Admissões</button>
       </div>
     </div>
 
@@ -69,7 +69,7 @@
       </div>
 
       <div class="table-body">
-        <div v-for="patient in filteredPatients" :key="patient.id" class="table-row">
+        <div v-for="patient in filteredPatients" :key="patient._id || patient.id" class="table-row">
           <div class="table-cell">{{ patient.recordNumber }}</div>
           <div class="table-cell">
             <strong>{{ patient.name }}</strong>
@@ -96,11 +96,11 @@
       </div>
     </div>
 
-    <!-- Modal de Novo Paciente -->
+    <!-- Modal de Novo Paciente / Edição -->
     <div v-if="showNewPatientForm" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Nova Admissão de Paciente</h2>
+          <h2>{{ isEditing ? 'Editar Paciente' : 'Nova Admissão de Paciente' }}</h2>
           <button class="close-btn" @click="showNewPatientForm = false">×</button>
         </div>
 
@@ -157,7 +157,9 @@
               <button type="button" class="btn-cancel" @click="showNewPatientForm = false">
                 Cancelar
               </button>
-              <button type="submit" class="btn-save">💾 Salvar Admissão</button>
+              <button type="submit" class="btn-save">
+                💾 {{ isEditing ? 'Atualizar' : 'Salvar Admissão' }}
+              </button>
             </div>
           </form>
         </div>
@@ -176,6 +178,8 @@ export default {
       showNewPatientForm: false,
       searchTerm: '',
       currentFilter: 'all',
+      isEditing: false,
+      editingPatientId: null,
       filters: [
         { label: 'Todos', value: 'all' },
         { label: 'Voluntárias', value: 'voluntaria' },
@@ -226,6 +230,7 @@ export default {
       try {
         const response = await api.get('/patients')
         this.patients = response.data
+        console.log('Pacientes carregados:', this.patients)
       } catch (error) {
         console.error('Erro ao carregar pacientes:', error)
         alert('Erro ao carregar lista de pacientes')
@@ -244,20 +249,182 @@ export default {
           age: age
         }
 
-        const response = await api.post('/patients', patientData)
-        
-        // Adicionar à lista local
-        this.patients.unshift(response.data)
+        let response
+        if (this.isEditing) {
+          // CORREÇÃO: Verificar se editingPatientId está definido
+          if (!this.editingPatientId) {
+            throw new Error('ID do paciente não encontrado para edição')
+          }
+          
+          // ATUALIZAR paciente existente
+          response = await api.put(`/patients/${this.editingPatientId}`, patientData)
+          
+          // Atualizar na lista local - CORREÇÃO: usar _id
+          const index = this.patients.findIndex(p => p._id === this.editingPatientId)
+          if (index !== -1) {
+            this.patients.splice(index, 1, response.data)
+          }
+        } else {
+          // CRIAR novo paciente
+          response = await api.post('/patients', patientData)
+          // Adicionar à lista local
+          this.patients.unshift(response.data)
+        }
 
         // Fechar modal e resetar form
         this.showNewPatientForm = false
         this.resetNewPatientForm()
 
-        alert(`Paciente ${response.data.name} admitido com sucesso!\nProntuário: ${response.data.recordNumber}`)
+        const action = this.isEditing ? 'atualizado' : 'admitido'
+        alert(`Paciente ${response.data.name} ${action} com sucesso!\nProntuário: ${response.data.recordNumber}`)
       } catch (error) {
         console.error('Erro ao salvar paciente:', error)
-        alert(error.response?.data?.error || 'Erro ao salvar paciente')
+        alert(error.response?.data?.error || error.message || 'Erro ao salvar paciente')
       }
+    },
+
+    editPatient(patient) {
+      console.log('🔍 Dados do paciente para edição:', patient)
+      console.log('🔍 ID do paciente:', patient._id)
+
+      // CORREÇÃO: Usar _id do MongoDB em vez de id
+      this.isEditing = true
+      this.editingPatientId = patient._id || patient.id
+
+      // CORREÇÃO: Converter data do MongoDB para formato do input (YYYY-MM-DD)
+      let birthDateForInput = ''
+      if (patient.birthDate) {
+        const date = new Date(patient.birthDate)
+        birthDateForInput = date.toISOString().split('T')[0] // Formato YYYY-MM-DD
+      }
+
+      this.newPatient = {
+        name: patient.name,
+        cpf: patient.cpf,
+        birthDate: birthDateForInput, // Agora vai aparecer corretamente no input
+        gender: patient.gender,
+        admissionType: patient.admissionType,
+        mainSubstance: patient.mainSubstance || 'alcool',
+      }
+      this.showNewPatientForm = true
+    },
+
+    viewPatient(patient) {
+      const details = `
+📋 PRONTUÁRIO: ${patient.recordNumber}
+👤 NOME: ${patient.name}
+📅 IDADE: ${patient.age} anos
+⚧ GÊNERO: ${patient.gender}
+🔢 CPF: ${this.formatCPF(patient.cpf)}
+🏥 TIPO INTERNAÇÃO: ${this.getAdmissionTypeLabel(patient.admissionType)}
+💊 SUBSTÂNCIA PRINCIPAL: ${this.getSubstanceLabel(patient.mainSubstance)}
+📅 DATA ADMISSÃO: ${this.formatDate(patient.admissionDate)}
+📊 STATUS: ${this.getStatusLabel(patient.status)}
+      `.trim()
+
+      alert(details)
+    },
+
+    generateAdmissionsReport() {
+      // Criar conteúdo HTML para o relatório
+      const reportContent = `
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <title>Relatório de Admissões - Clínica Vida Nova</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; color: #333; }
+                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e3c72; padding-bottom: 20px; }
+                .header h1 { color: #1e3c72; margin: 0; }
+                .header .subtitle { color: #666; font-size: 16px; }
+                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+                th { background-color: #1e3c72; color: white; }
+                .footer { margin-top: 30px; text-align: center; color: #666; font-size: 14px; border-top: 1px solid #e2e8f0; padding-top: 15px; }
+                .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 20px 0; }
+                .stat-card { background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center; border-left: 4px solid #1e3c72; }
+                .stat-card h3 { margin: 0; font-size: 1.5rem; color: #1e3c72; }
+                .stat-card p { margin: 5px 0 0 0; color: #666; }
+                @media print {
+                    body { margin: 0; }
+                    .header { margin-bottom: 20px; }
+                    .stats { margin: 15px 0; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>🏥 Clínica Vida Nova</h1>
+                <p class="subtitle">Relatório de Admissões - ${new Date().toLocaleDateString('pt-BR')}</p>
+            </div>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <h3>${this.patients.length}</h3>
+                    <p>Total de Pacientes</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${this.getPatientsByType('voluntaria').length}</h3>
+                    <p>Voluntárias</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${this.getPatientsByType('involuntaria').length}</h3>
+                    <p>Involuntárias</p>
+                </div>
+                <div class="stat-card">
+                    <h3>${this.getPendingAdmissions().length}</h3>
+                    <p>Em Triagem</p>
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Prontuário</th>
+                        <th>Paciente</th>
+                        <th>Idade</th>
+                        <th>Gênero</th>
+                        <th>Tipo Internação</th>
+                        <th>Substância</th>
+                        <th>Data Admissão</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${this.patients.map(patient => `
+                        <tr>
+                            <td>${patient.recordNumber}</td>
+                            <td>${patient.name}</td>
+                            <td>${patient.age} anos</td>
+                            <td>${patient.gender}</td>
+                            <td>${this.getAdmissionTypeLabel(patient.admissionType)}</td>
+                            <td>${this.getSubstanceLabel(patient.mainSubstance)}</td>
+                            <td>${this.formatDate(patient.admissionDate)}</td>
+                            <td>${this.getStatusLabel(patient.status)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+
+            <div class="footer">
+                <p>Relatório gerado em ${new Date().toLocaleString('pt-BR')}</p>
+                <p>Clínica Vida Nova - Sistema de Gestão</p>
+                <p>Documento confidencial - Uso interno</p>
+            </div>
+        </body>
+        </html>
+      `;
+      
+      // Abrir nova janela com o relatório
+      const reportWindow = window.open('', '_blank');
+      reportWindow.document.write(reportContent);
+      reportWindow.document.close();
+      
+      // Opção de impressão
+      setTimeout(() => {
+        reportWindow.print();
+      }, 500);
     },
 
     getPatientsByType(type) {
@@ -269,10 +436,12 @@ export default {
     },
     
     formatCPF(cpf) {
+      if (!cpf) return '---'
       return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')
     },
     
     formatDate(date) {
+      if (!date) return '---'
       return new Date(date).toLocaleDateString('pt-BR')
     },
     
@@ -284,6 +453,17 @@ export default {
       }
       return labels[type] || type
     },
+
+    getSubstanceLabel(substance) {
+      const labels = {
+        alcool: 'Álcool',
+        cocaina: 'Cocaína/Crack',
+        maconha: 'Maconha',
+        medicamentos: 'Medicamentos Controlados',
+        outras: 'Outras Substâncias'
+      }
+      return labels[substance] || substance
+    },
     
     getStatusLabel(status) {
       const labels = {
@@ -292,39 +472,6 @@ export default {
         alta: 'Alta Médica',
       }
       return labels[status] || status
-    },
-    
-    viewPatient(patient) {
-      const details = `
-📋 PRONTUÁRIO: ${patient.recordNumber}
-👤 NOME: ${patient.name}
-📅 IDADE: ${patient.age} anos
-⚧ GÊNERO: ${patient.gender}
-🔢 CPF: ${this.formatCPF(patient.cpf)}
-🏥 TIPO INTERNAÇÃO: ${this.getAdmissionTypeLabel(patient.admissionType)}
-📅 DATA ADMISSÃO: ${this.formatDate(patient.admissionDate)}
-📊 STATUS: ${this.getStatusLabel(patient.status)}
-      `.trim()
-
-      alert(details)
-    },
-    
-    editPatient(patient) {
-      // Edição simples - preenche o formulário com dados do paciente
-      this.newPatient = {
-        name: patient.name,
-        cpf: patient.cpf,
-        birthDate: patient.birthDate || '',
-        gender: patient.gender,
-        admissionType: patient.admissionType,
-        mainSubstance: patient.mainSubstance || 'alcool',
-      }
-
-      // Remove o paciente da lista (será readicionado com os dados atualizados)
-      this.patients = this.patients.filter((p) => p.id !== patient.id)
-
-      // Abre o modal de formulário
-      this.showNewPatientForm = true
     },
     
     resetNewPatientForm() {
@@ -336,6 +483,8 @@ export default {
         admissionType: 'voluntaria',
         mainSubstance: 'alcool',
       }
+      this.isEditing = false
+      this.editingPatientId = null
     },
   },
   mounted() {

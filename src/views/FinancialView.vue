@@ -7,9 +7,6 @@
         <p>Controle de mensalidades, faturamento e fluxo de caixa integrado</p>
       </div>
       <div class="header-actions">
-        <button class="btn-primary" @click="showNewPayment = true">
-          💳 Registrar Pagamento
-        </button>
         <button class="btn-secondary" @click="generateFinancialReport">
           📊 Relatório Financeiro
         </button>
@@ -22,23 +19,23 @@
         <div class="stat-icon">💰</div>
         <div class="stat-info">
           <h3>Faturamento Mensal</h3>
-          <p class="stat-number">R$ {{ formatCurrency(monthlyRevenue) }}</p>
-          <span class="stat-detail">+12% vs mês anterior</span>
+          <p class="stat-number">R$ {{ formatCurrency(quickStats.monthlyRevenue) }}</p>
+          <span class="stat-detail">{{ quickStats.paidPayments }} pagamentos</span>
         </div>
       </div>
       <div class="stat-card">
         <div class="stat-icon">⏰</div>
         <div class="stat-info">
           <h3>Pagamentos Pendentes</h3>
-          <p class="stat-number">{{ pendingPayments.length }}</p>
-          <span class="stat-detail warning">R$ {{ formatCurrency(pendingAmount) }}</span>
+          <p class="stat-number">{{ quickStats.pendingPayments }}</p>
+          <span class="stat-detail warning">R$ {{ formatCurrency(quickStats.pendingAmount) }}</span>
         </div>
       </div>
       <div class="stat-card">
         <div class="stat-icon">✅</div>
         <div class="stat-info">
           <h3>Pagamentos em Dia</h3>
-          <p class="stat-number">{{ paidPayments.length }}</p>
+          <p class="stat-number">{{ quickStats.paidPayments }}</p>
           <span class="stat-detail success">{{ paidPercentage }}% dos pacientes</span>
         </div>
       </div>
@@ -46,8 +43,8 @@
         <div class="stat-icon">📅</div>
         <div class="stat-info">
           <h3>Vencimentos Hoje</h3>
-          <p class="stat-number">{{ dueTodayPayments.length }}</p>
-          <span class="stat-detail">R$ {{ formatCurrency(dueTodayAmount) }}</span>
+          <p class="stat-number">{{ quickStats.dueTodayPayments }}</p>
+          <span class="stat-detail">R$ {{ formatCurrency(quickStats.dueTodayAmount) }}</span>
         </div>
       </div>
     </div>
@@ -75,6 +72,7 @@
                 <option value="all">Todas as Mensalidades</option>
                 <option value="paid">Pagas</option>
                 <option value="pending">Pendentes</option>
+                <option value="overdue">Em Atraso</option>
               </select>
               <button class="btn-primary small" @click="showNewPayment = true">
                 ➕ Nova Mensalidade
@@ -98,7 +96,7 @@
             <div class="table-body">
               <div 
                 v-for="payment in filteredPayments" 
-                :key="payment.id"
+                :key="payment._id"
                 class="table-row"
               >
                 <div class="table-cell">
@@ -134,7 +132,7 @@
                 </div>
                 <div class="table-cell">
                   <button 
-                    v-if="payment.status === 'pending'"
+                    v-if="payment.status === 'pending' || payment.status === 'overdue'"
                     class="action-btn pay-btn"
                     @click="registerPayment(payment)"
                   >
@@ -150,6 +148,9 @@
                   <button class="action-btn edit-btn" @click="editPayment(payment)">
                     ✏️ Editar
                   </button>
+                  <button class="action-btn delete-btn" @click="deletePayment(payment)">
+                    🗑️ Excluir
+                  </button>
                 </div>
               </div>
             </div>
@@ -161,7 +162,7 @@
           <div class="section-header">
             <h3>🏥 Faturamento por Convênio</h3>
             <div class="period-selector">
-              <select v-model="billingPeriod" class="filter-select">
+              <select v-model="billingPeriod" class="filter-select" @change="loadBillingData">
                 <option value="current_month">Este Mês</option>
                 <option value="last_month">Mês Anterior</option>
                 <option value="current_quarter">Este Trimestre</option>
@@ -174,15 +175,15 @@
             <div class="billing-stats">
               <div class="billing-card">
                 <h4>Total Faturado</h4>
-                <p class="billing-amount">{{ formatCurrency(billingStats.total) }}</p>
+                <p class="billing-amount">{{ formatCurrency(financialReport.summary?.totalRevenue || 0) }}</p>
                 <div class="billing-breakdown">
                   <div class="breakdown-item">
                     <span>Convênios:</span>
-                    <strong>{{ formatCurrency(billingStats.insurance) }}</strong>
+                    <strong>{{ formatCurrency(insuranceTotal) }}</strong>
                   </div>
                   <div class="breakdown-item">
                     <span>Particular:</span>
-                    <strong>{{ formatCurrency(billingStats.private) }}</strong>
+                    <strong>{{ formatCurrency(particularTotal) }}</strong>
                   </div>
                 </div>
               </div>
@@ -238,11 +239,11 @@
           <div class="section-header">
             <h3>📈 Fluxo de Caixa</h3>
             <div class="period-selector">
-              <select v-model="cashflowPeriod" class="filter-select">
-                <option value="today">Hoje</option>
-                <option value="week">Esta Semana</option>
-                <option value="month">Este Mês</option>
-                <option value="quarter">Este Trimestre</option>
+              <select v-model="cashflowPeriod" class="filter-select" @change="loadFinancialReport">
+                <option value="current_month">Este Mês</option>
+                <option value="last_month">Mês Anterior</option>
+                <option value="current_quarter">Este Trimestre</option>
+                <option value="current_year">Este Ano</option>
               </select>
               <button class="btn-primary small" @click="showExpenseModal = true">
                 💸 Nova Despesa
@@ -255,23 +256,23 @@
               <div class="summary-card income">
                 <h4>Entradas</h4>
                 <p class="summary-amount positive">
-                  +{{ formatCurrency(cashflowSummary.income) }}
+                  +{{ formatCurrency(financialReport.summary?.totalRevenue || 0) }}
                 </p>
-                <span class="summary-detail">{{ cashflowSummary.incomeCount }} recebimentos</span>
+                <span class="summary-detail">{{ financialReport.summary?.paymentCount || 0 }} recebimentos</span>
               </div>
               
               <div class="summary-card expenses">
                 <h4>Saídas</h4>
                 <p class="summary-amount negative">
-                  -{{ formatCurrency(cashflowSummary.expenses) }}
+                  -{{ formatCurrency(financialReport.summary?.totalExpenses || 0) }}
                 </p>
-                <span class="summary-detail">{{ cashflowSummary.expenseCount }} despesas</span>
+                <span class="summary-detail">{{ financialReport.summary?.expenseCount || 0 }} despesas</span>
               </div>
               
               <div class="summary-card balance">
                 <h4>Saldo Líquido</h4>
-                <p :class="['summary-amount', cashflowSummary.balance >= 0 ? 'positive' : 'negative']">
-                  {{ formatCurrency(cashflowSummary.balance) }}
+                <p :class="['summary-amount', cashflowBalance >= 0 ? 'positive' : 'negative']">
+                  {{ formatCurrency(cashflowBalance) }}
                 </p>
                 <span class="summary-detail">Período selecionado</span>
               </div>
@@ -282,7 +283,7 @@
               <div class="transactions-list">
                 <div 
                   v-for="transaction in recentTransactions"
-                  :key="transaction.id"
+                  :key="transaction._id"
                   class="transaction-item"
                 >
                   <div class="transaction-icon">
@@ -331,7 +332,7 @@
               <div class="report-content">
                 <h4>Relatório de Faturamento</h4>
                 <p>Faturamento detalhado por período e convênio</p>
-                <span class="report-count">Últimos 12 meses</span>
+                <span class="report-count">Período: {{ billingPeriodLabel }}</span>
               </div>
             </div>
 
@@ -373,8 +374,8 @@
                 <option value="">Selecione um paciente</option>
                 <option 
                   v-for="patient in patients" 
-                  :key="patient.id" 
-                  :value="patient.id"
+                  :key="patient._id" 
+                  :value="patient._id"
                 >
                   {{ patient.name }} ({{ patient.recordNumber }})
                 </option>
@@ -389,6 +390,7 @@
                   v-model="newPayment.amount" 
                   placeholder="0.00"
                   step="0.01"
+                  min="0"
                   required
                 >
               </div>
@@ -420,6 +422,7 @@
                   <option value="amil">Amil</option>
                   <option value="sulamerica">SulAmérica</option>
                   <option value="bradesco">Bradesco Saúde</option>
+                  <option value="particular">Particular</option>
                 </select>
               </div>
             </div>
@@ -548,6 +551,7 @@
                   v-model="newExpense.amount" 
                   placeholder="0.00"
                   step="0.01"
+                  min="0"
                   required
                 >
               </div>
@@ -598,6 +602,8 @@
 </template>
 
 <script>
+import api from '../services/api';
+
 export default {
   name: 'FinancialView',
   data() {
@@ -605,7 +611,7 @@ export default {
       currentTab: 'payments',
       paymentFilter: 'all',
       billingPeriod: 'current_month',
-      cashflowPeriod: 'month',
+      cashflowPeriod: 'current_month',
       showNewPayment: false,
       showRegisterPayment: false,
       showExpenseModal: false,
@@ -639,262 +645,149 @@ export default {
         receipt: '',
         observations: ''
       },
-      patients: [
-        {
-          id: 1,
-          name: 'João Silva Santos',
-          recordNumber: '2024-001',
-          monthlyFee: 2500.00
-        },
-        {
-          id: 2,
-          name: 'Maria Oliveira Costa',
-          recordNumber: '2024-002',
-          monthlyFee: 2800.00
-        },
-        {
-          id: 3,
-          name: 'Carlos Alberto Souza',
-          recordNumber: '2024-003',
-          monthlyFee: 2200.00
-        }
-      ],
-      payments: [
-        {
-          id: 1,
-          patientId: 1,
-          patientName: 'João Silva Santos',
-          patientRecord: '2024-001',
-          amount: 2500.00,
-          dueDate: '2024-01-05',
-          paymentDate: '2024-01-05',
-          status: 'paid',
-          paymentType: 'mensalidade',
-          insurance: 'unimed',
-          paymentMethod: 'pix',
-          receipt: 'PIX123456',
-          observations: 'Pagamento realizado via PIX'
-        },
-        {
-          id: 2,
-          patientId: 2,
-          patientName: 'Maria Oliveira Costa',
-          patientRecord: '2024-002',
-          amount: 2800.00,
-          dueDate: '2024-01-10',
-          paymentDate: null,
-          status: 'pending',
-          paymentType: 'mensalidade',
-          insurance: 'amil',
-          observations: 'Aguardando pagamento'
-        },
-        {
-          id: 3,
-          patientId: 3,
-          patientName: 'Carlos Alberto Souza',
-          patientRecord: '2024-003',
-          amount: 2200.00,
-          dueDate: '2023-12-15',
-          paymentDate: null,
-          status: 'pending',
-          paymentType: 'mensalidade',
-          insurance: 'particular',
-          observations: 'Pagamento em atraso'
-        }
-      ],
-      expenses: [
-        {
-          id: 1,
-          description: 'Folha de Pagamento - Janeiro',
-          amount: 18000.00,
-          date: '2024-01-05',
-          category: 'folha_pagamento',
-          observations: 'Pagamento da equipe médica e administrativa'
-        },
-        {
-          id: 2,
-          description: 'Aluguel da Clínica',
-          amount: 8000.00,
-          date: '2024-01-03',
-          category: 'aluguel',
-          observations: 'Aluguel do mês de janeiro'
-        },
-        {
-          id: 3,
-          description: 'Medicamentos Controlados',
-          amount: 3500.00,
-          date: '2024-01-10',
-          category: 'medicamentos',
-          observations: 'Reposição de medicamentos da farmácia'
-        }
-      ],
-      revenueHistory: [
-        { month: 'Jul', revenue: 45000 },
-        { month: 'Ago', revenue: 52000 },
-        { month: 'Set', revenue: 48000 },
-        { month: 'Out', revenue: 55000 },
-        { month: 'Nov', revenue: 58000 },
-        { month: 'Dez', revenue: 62000 }
-      ]
+      patients: [],
+      payments: [],
+      expenses: [],
+      quickStats: {
+        monthlyRevenue: 0,
+        pendingPayments: 0,
+        pendingAmount: 0,
+        paidPayments: 0,
+        dueTodayPayments: 0,
+        dueTodayAmount: 0,
+        overduePayments: 0,
+        overdueAmount: 0,
+        monthlyExpenses: 0
+      },
+      financialReport: {
+        period: {},
+        summary: {},
+        insuranceDistribution: {},
+        expenseDistribution: {},
+        recentPayments: [],
+        recentExpenses: []
+      },
+      revenueHistory: []
     }
   },
   computed: {
     filteredPayments() {
-      let filtered = this.payments
+      let filtered = this.payments;
 
       if (this.paymentFilter !== 'all') {
-        filtered = filtered.filter(payment => payment.status === this.paymentFilter)
+        filtered = filtered.filter(payment => payment.status === this.paymentFilter);
       }
 
-      return filtered
+      return filtered;
     },
     
-    monthlyRevenue() {
-      return this.payments
-        .filter(p => p.status === 'paid' && this.isCurrentMonth(p.paymentDate))
-        .reduce((sum, p) => sum + p.amount, 0)
-    },
-    
-    pendingPayments() {
-      return this.payments.filter(payment => payment.status === 'pending')
-    },
-    
-    pendingAmount() {
-      return this.pendingPayments.reduce((sum, p) => sum + p.amount, 0)
+    paidPercentage() {
+      const total = this.payments.length;
+      const paid = this.payments.filter(p => p.status === 'paid').length;
+      return total > 0 ? Math.round((paid / total) * 100) : 0;
     },
     
     overduePayments() {
       return this.payments.filter(payment => 
-        payment.status === 'pending' && this.isOverdue(payment)
-      )
+        (payment.status === 'pending' || payment.status === 'overdue') && this.isOverdue(payment)
+      );
     },
     
     overdueAmount() {
-      return this.overduePayments.reduce((sum, p) => sum + p.amount, 0)
-    },
-    
-    paidPayments() {
-      return this.payments.filter(payment => payment.status === 'paid')
-    },
-    
-    paidPercentage() {
-      const total = this.payments.length
-      return total > 0 ? Math.round((this.paidPayments.length / total) * 100) : 0
-    },
-    
-    dueTodayPayments() {
-      const today = new Date().toISOString().split('T')[0]
-      return this.payments.filter(payment => 
-        payment.dueDate === today && payment.status === 'pending'
-      )
-    },
-    
-    dueTodayAmount() {
-      return this.dueTodayPayments.reduce((sum, p) => sum + p.amount, 0)
-    },
-    
-    billingStats() {
-      const currentMonthPayments = this.payments.filter(p => 
-        p.status === 'paid' && this.isCurrentMonth(p.paymentDate)
-      )
-      
-      return {
-        total: currentMonthPayments.reduce((sum, p) => sum + p.amount, 0),
-        insurance: currentMonthPayments
-          .filter(p => p.insurance && p.insurance !== 'particular')
-          .reduce((sum, p) => sum + p.amount, 0),
-        private: currentMonthPayments
-          .filter(p => !p.insurance || p.insurance === 'particular')
-          .reduce((sum, p) => sum + p.amount, 0)
-      }
+      return this.overduePayments.reduce((sum, p) => sum + p.amount, 0);
     },
     
     insuranceDistribution() {
-      const insuranceMap = {}
+      const distribution = this.financialReport.insuranceDistribution || {};
+      const total = Object.values(distribution).reduce((sum, amount) => sum + amount, 0);
       
-      this.payments
-        .filter(p => p.insurance && p.insurance !== 'particular' && p.status === 'paid')
-        .forEach(payment => {
-          if (!insuranceMap[payment.insurance]) {
-            insuranceMap[payment.insurance] = 0
-          }
-          insuranceMap[payment.insurance] += payment.amount
-        })
-      
-      const total = Object.values(insuranceMap).reduce((sum, amount) => sum + amount, 0)
-      
-      return Object.entries(insuranceMap).map(([name, amount]) => ({
+      return Object.entries(distribution).map(([name, amount]) => ({
         name: this.getInsuranceLabel(name),
         amount,
         percentage: total > 0 ? Math.round((amount / total) * 100) : 0
-      }))
+      }));
+    },
+    
+    insuranceTotal() {
+      const distribution = this.financialReport.insuranceDistribution || {};
+      return Object.values(distribution).reduce((sum, amount) => sum + amount, 0);
+    },
+    
+    particularTotal() {
+      const particularPayments = this.payments.filter(p => 
+        p.status === 'paid' && (!p.insurance || p.insurance === 'particular')
+      );
+      return particularPayments.reduce((sum, p) => sum + p.amount, 0);
     },
     
     maxRevenue() {
-      return Math.max(...this.revenueHistory.map(m => m.revenue))
+      return Math.max(...this.revenueHistory.map(m => m.revenue), 1);
     },
     
-    cashflowSummary() {
-      const income = this.payments
-        .filter(p => p.status === 'paid')
-        .reduce((sum, p) => sum + p.amount, 0)
-      
-      const expenses = this.expenses.reduce((sum, e) => sum + e.amount, 0)
-      
-      return {
-        income,
-        expenses,
-        balance: income - expenses,
-        incomeCount: this.paidPayments.length,
-        expenseCount: this.expenses.length
-      }
+    cashflowBalance() {
+      return (this.financialReport.summary?.totalRevenue || 0) - (this.financialReport.summary?.totalExpenses || 0);
     },
     
     recentTransactions() {
-      const incomeTransactions = this.payments
-        .filter(p => p.status === 'paid')
+      const incomeTransactions = (this.financialReport.recentPayments || [])
         .map(p => ({
-          id: p.id,
+          _id: p._id,
           type: 'income',
           description: `Mensalidade - ${p.patientName}`,
           category: this.getPaymentTypeLabel(p.paymentType),
           amount: p.amount,
           date: p.paymentDate
-        }))
+        }));
 
-      const expenseTransactions = this.expenses.map(e => ({
-        id: e.id + 1000,
-        type: 'expense',
-        description: e.description,
-        category: this.getExpenseCategoryLabel(e.category),
-        amount: e.amount,
-        date: e.date
-      }))
+      const expenseTransactions = (this.financialReport.recentExpenses || [])
+        .map(e => ({
+          _id: e._id,
+          type: 'expense',
+          description: e.description,
+          category: this.getExpenseCategoryLabel(e.category),
+          amount: e.amount,
+          date: e.date
+        }));
 
       return [...incomeTransactions, ...expenseTransactions]
         .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .slice(0, 10)
+        .slice(0, 10);
+    },
+    
+    billingPeriodLabel() {
+      const labels = {
+        current_month: 'Este Mês',
+        last_month: 'Mês Anterior',
+        current_quarter: 'Este Trimestre',
+        current_year: 'Este Ano'
+      };
+      return labels[this.billingPeriod] || this.billingPeriod;
     }
+  },
+  async mounted() {
+    await this.loadInitialData();
   },
   methods: {
     formatCurrency(value) {
       return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL'
-      }).format(value)
+      }).format(value);
     },
     
     formatDate(dateString) {
-      if (!dateString) return '---'
-      return new Date(dateString).toLocaleDateString('pt-BR')
+      if (!dateString) return '---';
+      return new Date(dateString).toLocaleDateString('pt-BR');
     },
     
     getPaymentStatusLabel(status) {
       const labels = {
         paid: 'Pago',
-        pending: 'Pendente'
-      }
-      return labels[status] || status
+        pending: 'Pendente',
+        overdue: 'Em Atraso',
+        cancelled: 'Cancelado'
+      };
+      return labels[status] || status;
     },
     
     getPaymentTypeLabel(type) {
@@ -903,8 +796,8 @@ export default {
         particular: 'Particular',
         convenio: 'Convênio',
         taxa: 'Taxa'
-      }
-      return labels[type] || type
+      };
+      return labels[type] || type;
     },
     
     getInsuranceLabel(insurance) {
@@ -912,9 +805,10 @@ export default {
         unimed: 'Unimed',
         amil: 'Amil',
         sulamerica: 'SulAmérica',
-        bradesco: 'Bradesco Saúde'
-      }
-      return labels[insurance] || insurance
+        bradesco: 'Bradesco Saúde',
+        particular: 'Particular'
+      };
+      return labels[insurance] || insurance;
     },
     
     getExpenseCategoryLabel(category) {
@@ -925,65 +819,140 @@ export default {
         medicamentos: 'Medicamentos',
         manutencao: 'Manutenção',
         outros: 'Outros'
-      }
-      return labels[category] || category
-    },
-    
-    isCurrentMonth(dateString) {
-      if (!dateString) return false
-      const date = new Date(dateString)
-      const now = new Date()
-      return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
+      };
+      return labels[category] || category;
     },
     
     isOverdue(payment) {
-      if (payment.status === 'paid') return false
-      const dueDate = new Date(payment.dueDate)
-      const today = new Date()
-      return dueDate < today
+      if (payment.status === 'paid') return false;
+      const dueDate = new Date(payment.dueDate);
+      const today = new Date();
+      return dueDate < today;
     },
     
     getDueStatus(payment) {
-      if (payment.status === 'paid') return 'Pago'
+      if (payment.status === 'paid') return 'Pago';
       
-      const dueDate = new Date(payment.dueDate)
-      const today = new Date()
-      const diffTime = dueDate - today
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+      const dueDate = new Date(payment.dueDate);
+      const today = new Date();
+      const diffTime = dueDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
-      if (diffDays === 0) return 'Vence hoje'
-      if (diffDays === 1) return 'Vence amanhã'
-      if (diffDays > 1) return `Vence em ${diffDays} dias`
-      return `Atrasado ${Math.abs(diffDays)} dias`
+      if (diffDays === 0) return 'Vence hoje';
+      if (diffDays === 1) return 'Vence amanhã';
+      if (diffDays > 1) return `Vence em ${diffDays} dias`;
+      return `Atrasado ${Math.abs(diffDays)} dias`;
+    },
+    
+    async loadInitialData() {
+      try {
+        await Promise.all([
+          this.fetchPatients(),
+          this.fetchPayments(),
+          this.fetchExpenses(),
+          this.fetchQuickStats(),
+          this.loadFinancialReport()
+        ]);
+      } catch (error) {
+        console.error('Erro ao carregar dados iniciais:', error);
+        alert('Erro ao carregar dados. Verifique o console para mais detalhes.');
+      }
+    },
+    
+    async fetchPatients() {
+      try {
+        const response = await api.get('/patients/select/patients');
+        this.patients = response.data;
+        console.log('Pacientes carregados:', this.patients);
+      } catch (error) {
+        console.error('Erro ao carregar pacientes:', error);
+        alert('Erro ao carregar lista de pacientes');
+      }
+    },
+    
+    async fetchPayments() {
+      try {
+        const response = await api.get('/financial/payments');
+        this.payments = response.data;
+        console.log('Pagamentos carregados:', this.payments);
+      } catch (error) {
+        console.error('Erro ao carregar pagamentos:', error);
+        // Mantém array vazio em caso de erro
+        this.payments = [];
+      }
+    },
+    
+    async fetchExpenses() {
+      try {
+        const response = await api.get('/financial/expenses');
+        this.expenses = response.data;
+        console.log('Despesas carregadas:', this.expenses);
+      } catch (error) {
+        console.error('Erro ao carregar despesas:', error);
+        // Mantém array vazio em caso de erro
+        this.expenses = [];
+      }
+    },
+    
+    async fetchQuickStats() {
+      try {
+        const response = await api.get('/financial/stats');
+        this.quickStats = response.data;
+        console.log('Estatísticas carregadas:', this.quickStats);
+      } catch (error) {
+        console.error('Erro ao carregar estatísticas:', error);
+      }
+    },
+    
+    async loadFinancialReport() {
+      try {
+        const period = this.currentTab === 'billing' ? this.billingPeriod : this.cashflowPeriod;
+        const response = await api.get(`/financial/reports?period=${period}`);
+        this.financialReport = response.data;
+        console.log('Relatório financeiro carregado:', this.financialReport);
+      } catch (error) {
+        console.error('Erro ao carregar relatório financeiro:', error);
+      }
+    },
+    
+    async loadBillingData() {
+      await this.loadFinancialReport();
     },
     
     registerPayment(payment) {
-      this.registeringPayment = { ...payment }
+      this.registeringPayment = { ...payment };
       this.paymentRegistration = {
         paymentDate: new Date().toISOString().split('T')[0],
         paymentMethod: 'pix',
         receipt: '',
         observations: ''
-      }
-      this.showRegisterPayment = true
+      };
+      this.showRegisterPayment = true;
     },
     
-    confirmPayment() {
-      if (!this.registeringPayment) return
-      
-      const index = this.payments.findIndex(p => p.id === this.registeringPayment.id)
-      if (index !== -1) {
-        this.payments[index] = {
-          ...this.payments[index],
-          status: 'paid',
-          paymentDate: this.paymentRegistration.paymentDate,
-          paymentMethod: this.paymentRegistration.paymentMethod,
-          receipt: this.paymentRegistration.receipt,
-          observations: this.paymentRegistration.observations
-        }
+    async confirmPayment() {
+      try {
+        if (!this.registeringPayment) return;
+
+        const response = await api.patch(
+          `/financial/payments/${this.registeringPayment._id}/pay`, 
+          this.paymentRegistration
+        );
+
+        alert(`Pagamento de ${this.registeringPayment.patientName} registrado com sucesso!`);
         
-        alert(`Pagamento de ${this.registeringPayment.patientName} registrado com sucesso!`)
-        this.closeRegisterPaymentModal()
+        // Recarregar dados
+        await Promise.all([
+          this.fetchPayments(),
+          this.fetchQuickStats(),
+          this.loadFinancialReport()
+        ]);
+        
+        this.closeRegisterPaymentModal();
+
+      } catch (error) {
+        console.error('Erro ao registrar pagamento:', error);
+        alert('Erro ao registrar pagamento. Verifique o console para mais detalhes.');
       }
     },
     
@@ -998,102 +967,149 @@ Status: ${this.getPaymentStatusLabel(payment.status)}
 Tipo: ${this.getPaymentTypeLabel(payment.paymentType)}
 
 ${payment.paymentDate ? `Data do Pagamento: ${this.formatDate(payment.paymentDate)}` : ''}
-${payment.paymentMethod ? `Método: ${payment.paymentMethod}` : ''}
+${payment.paymentMethod ? `Método: ${this.getPaymentMethodLabel(payment.paymentMethod)}` : ''}
 ${payment.receipt ? `Comprovante: ${payment.receipt}` : ''}
 ${payment.observations ? `Observações: ${payment.observations}` : ''}
-      `.trim()
+      `.trim();
       
-      alert(details)
+      alert(details);
+    },
+    
+    getPaymentMethodLabel(method) {
+      const labels = {
+        pix: 'PIX',
+        cartao_credito: 'Cartão de Crédito',
+        cartao_debito: 'Cartão de Débito',
+        dinheiro: 'Dinheiro',
+        transferencia: 'Transferência'
+      };
+      return labels[method] || method;
     },
     
     editPayment(payment) {
       this.newPayment = {
-        patientId: payment.patientId.toString(),
+        patientId: payment.patientId,
         amount: payment.amount,
-        dueDate: payment.dueDate,
+        dueDate: payment.dueDate.split('T')[0],
         paymentType: payment.paymentType,
         insurance: payment.insurance || '',
         observations: payment.observations || ''
-      }
-      this.isEditingPayment = true
-      this.editingPaymentId = payment.id
-      this.showNewPayment = true
+      };
+      this.isEditingPayment = true;
+      this.editingPaymentId = payment._id;
+      this.showNewPayment = true;
     },
     
-    savePayment() {
-      if (!this.newPayment.patientId) {
-        alert('Por favor, selecione um paciente.')
-        return
+    async deletePayment(payment) {
+      if (!confirm(`Tem certeza que deseja excluir o pagamento de ${payment.patientName}?`)) {
+        return;
       }
 
-      const patient = this.patients.find(p => p.id == this.newPayment.patientId)
-      if (!patient) {
-        alert('Paciente não encontrado.')
-        return
+      try {
+        await api.delete(`/financial/payments/${payment._id}`);
+        alert('Pagamento excluído com sucesso!');
+        
+        // Recarregar dados
+        await Promise.all([
+          this.fetchPayments(),
+          this.fetchQuickStats()
+        ]);
+      } catch (error) {
+        console.error('Erro ao excluir pagamento:', error);
+        alert('Erro ao excluir pagamento.');
       }
-
-      if (this.isEditingPayment) {
-        const index = this.payments.findIndex(p => p.id === this.editingPaymentId)
-        if (index !== -1) {
-          this.payments[index] = {
-            ...this.payments[index],
-            amount: parseFloat(this.newPayment.amount),
-            dueDate: this.newPayment.dueDate,
-            paymentType: this.newPayment.paymentType,
-            insurance: this.newPayment.insurance,
-            observations: this.newPayment.observations
-          }
-          alert('Mensalidade atualizada com sucesso!')
+    },
+    
+    async savePayment() {
+      try {
+        if (!this.newPayment.patientId) {
+          alert('Por favor, selecione um paciente.');
+          return;
         }
-      } else {
-        const newPayment = {
-          id: this.payments.length + 1,
-          patientId: parseInt(this.newPayment.patientId),
+
+        // Encontrar o paciente selecionado
+        const patient = this.patients.find(p => p._id === this.newPayment.patientId);
+        if (!patient) {
+          alert('Paciente não encontrado.');
+          return;
+        }
+
+        const paymentData = {
+          patientId: this.newPayment.patientId,
           patientName: patient.name,
           patientRecord: patient.recordNumber,
           amount: parseFloat(this.newPayment.amount),
           dueDate: this.newPayment.dueDate,
-          paymentDate: null,
-          status: 'pending',
           paymentType: this.newPayment.paymentType,
           insurance: this.newPayment.insurance,
           observations: this.newPayment.observations
+        };
+
+        let response;
+        if (this.isEditingPayment) {
+          response = await api.put(`/financial/payments/${this.editingPaymentId}`, paymentData);
+          alert('Mensalidade atualizada com sucesso!');
+        } else {
+          response = await api.post('/financial/payments', paymentData);
+          alert(`Mensalidade criada com sucesso para ${patient.name}!`);
         }
 
-        this.payments.push(newPayment)
-        alert(`Mensalidade criada com sucesso para ${patient.name}!`)
-      }
+        // Recarregar dados
+        await Promise.all([
+          this.fetchPayments(),
+          this.fetchQuickStats()
+        ]);
+        
+        this.closePaymentModal();
 
-      this.closePaymentModal()
+      } catch (error) {
+        console.error('Erro ao salvar pagamento:', error);
+        alert('Erro ao salvar mensalidade. Verifique o console para mais detalhes.');
+      }
     },
     
-    saveExpense() {
-      const newExpense = {
-        id: this.expenses.length + 1,
-        description: this.newExpense.description,
-        amount: parseFloat(this.newExpense.amount),
-        date: this.newExpense.date,
-        category: this.newExpense.category,
-        observations: this.newExpense.observations
-      }
+    async saveExpense() {
+      try {
+        const expenseData = {
+          description: this.newExpense.description,
+          amount: parseFloat(this.newExpense.amount),
+          date: this.newExpense.date,
+          category: this.newExpense.category,
+          observations: this.newExpense.observations
+        };
 
-      this.expenses.push(newExpense)
-      this.showExpenseModal = false
-      this.newExpense = {
-        description: '',
-        amount: '',
-        date: new Date().toISOString().split('T')[0],
-        category: 'folha_pagamento',
-        observations: ''
-      }
+        await api.post('/financial/expenses', expenseData);
+        
+        alert('Despesa registrada com sucesso!');
+        
+        // Recarregar dados
+        await Promise.all([
+          this.fetchExpenses(),
+          this.fetchQuickStats(),
+          this.loadFinancialReport()
+        ]);
+        
+        this.showExpenseModal = false;
+        
+        // Resetar o formulário
+        this.newExpense = {
+          description: '',
+          amount: '',
+          date: new Date().toISOString().split('T')[0],
+          category: 'folha_pagamento',
+          observations: ''
+        };
 
-      alert('Despesa registrada com sucesso!')
+      } catch (error) {
+        console.error('Erro ao salvar despesa:', error);
+        alert('Erro ao salvar despesa. Verifique o console para mais detalhes.');
+      }
     },
     
     closePaymentModal() {
-      this.showNewPayment = false
-      this.isEditingPayment = false
-      this.editingPaymentId = null
+      this.showNewPayment = false;
+      this.isEditingPayment = false;
+      this.editingPaymentId = null;
       this.newPayment = {
         patientId: '',
         amount: '',
@@ -1101,12 +1117,12 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
         paymentType: 'mensalidade',
         insurance: '',
         observations: ''
-      }
+      };
     },
     
     closeRegisterPaymentModal() {
-      this.showRegisterPayment = false
-      this.registeringPayment = null
+      this.showRegisterPayment = false;
+      this.registeringPayment = null;
     },
     
     generateFinancialReport() {
@@ -1139,14 +1155,15 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
             <div class="section">
                 <h2>📊 Resumo Financeiro</h2>
                 <div class="summary">
-                    <p><strong>Faturamento do Mês:</strong> ${this.formatCurrency(this.monthlyRevenue)}</p>
-                    <p><strong>Pagamentos Pendentes:</strong> ${this.pendingPayments.length} pacientes (${this.formatCurrency(this.pendingAmount)})</p>
+                    <p><strong>Faturamento do Mês:</strong> ${this.formatCurrency(this.quickStats.monthlyRevenue)}</p>
+                    <p><strong>Pagamentos Pendentes:</strong> ${this.quickStats.pendingPayments} pacientes (${this.formatCurrency(this.quickStats.pendingAmount)})</p>
+                    <p><strong>Pagamentos em Atraso:</strong> ${this.quickStats.overduePayments} pacientes (${this.formatCurrency(this.quickStats.overdueAmount)})</p>
                     <p><strong>Taxa de Pagamento:</strong> ${this.paidPercentage}% em dia</p>
                 </div>
             </div>
 
             <div class="section">
-                <h2>💳 Mensalidades Pendentes</h2>
+                <h2>💳 Mensalidades</h2>
                 <table>
                     <thead>
                         <tr>
@@ -1157,12 +1174,12 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
                         </tr>
                     </thead>
                     <tbody>
-                        ${this.pendingPayments.map(payment => `
+                        ${this.payments.map(payment => `
                             <tr>
                                 <td>${payment.patientName}</td>
                                 <td>${this.formatCurrency(payment.amount)}</td>
                                 <td>${this.formatDate(payment.dueDate)}</td>
-                                <td>${this.getDueStatus(payment)}</td>
+                                <td>${this.getPaymentStatusLabel(payment.status)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -1185,6 +1202,30 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
                                 <td>${item.name}</td>
                                 <td>${this.formatCurrency(item.amount)}</td>
                                 <td>${item.percentage}%</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2>💸 Despesas</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Descrição</th>
+                            <th>Valor</th>
+                            <th>Data</th>
+                            <th>Categoria</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${this.expenses.map(expense => `
+                            <tr>
+                                <td>${expense.description}</td>
+                                <td>${this.formatCurrency(expense.amount)}</td>
+                                <td>${this.formatDate(expense.date)}</td>
+                                <td>${this.getExpenseCategoryLabel(expense.category)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -1204,6 +1245,11 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
     },
     
     generateCollectionReport() {
+      if (this.overduePayments.length === 0) {
+        alert('Não há pagamentos em inadimplência no momento.');
+        return;
+      }
+
       const reportContent = `
         <!DOCTYPE html>
         <html lang="pt-BR">
@@ -1212,15 +1258,16 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
             <title>Relatório de Inadimplência - Clínica Vida Nova</title>
             <style>
                 body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
-                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #dc2626; padding-bottom: 20px; }
-                .header h1 { color: #dc2626; margin: 0; }
+                .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1e3c72; padding-bottom: 20px; }
+                .header h1 { color: #1e3c72; margin: 0; }
                 .section { margin-bottom: 25px; }
                 .section h2 { color: #1e3c72; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
                 table { width: 100%; border-collapse: collapse; margin: 15px 0; }
                 th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-                th { background-color: #dc2626; color: white; }
-                .negative { color: #dc2626; font-weight: bold; }
-                .summary { background: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #dc2626; }
+                th { background-color: #1e3c72; color: white; }
+                .negative { color: #dc2626; }
+                .summary { background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #dc2626; }
+                .overdue-badge { background: #fecaca; color: #dc2626; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; }
             </style>
         </head>
         <body>
@@ -1230,15 +1277,16 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
             </div>
 
             <div class="section">
-                <h2>📊 Resumo da Inadimplência</h2>
+                <h2>⏰ Resumo da Inadimplência</h2>
                 <div class="summary">
                     <p><strong>Total de Pagamentos em Atraso:</strong> ${this.overduePayments.length}</p>
                     <p><strong>Valor Total em Atraso:</strong> <span class="negative">${this.formatCurrency(this.overdueAmount)}</span></p>
+                    <p><strong>Taxa de Inadimplência:</strong> ${((this.overduePayments.length / this.payments.length) * 100).toFixed(1)}%</p>
                 </div>
             </div>
 
             <div class="section">
-                <h2>⏰ Detalhes dos Pagamentos em Atraso</h2>
+                <h2>📋 Detalhes dos Pagamentos em Atraso</h2>
                 <table>
                     <thead>
                         <tr>
@@ -1246,22 +1294,24 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
                             <th>Valor</th>
                             <th>Vencimento</th>
                             <th>Dias em Atraso</th>
+                            <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${this.overduePayments.map(payment => {
-                          const dueDate = new Date(payment.dueDate)
-                          const today = new Date()
-                          const diffTime = today - dueDate
-                          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+                          const dueDate = new Date(payment.dueDate);
+                          const today = new Date();
+                          const diffTime = today - dueDate;
+                          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                           return `
                             <tr>
-                                <td>${payment.patientName}</td>
+                                <td><strong>${payment.patientName}</strong><br><small>${payment.patientRecord}</small></td>
                                 <td>${this.formatCurrency(payment.amount)}</td>
                                 <td>${this.formatDate(payment.dueDate)}</td>
-                                <td class="negative">${diffDays} dias</td>
+                                <td><span class="overdue-badge">${diffDays} dias</span></td>
+                                <td>${this.getPaymentStatusLabel(payment.status)}</td>
                             </tr>
-                          `
+                          `;
                         }).join('')}
                     </tbody>
                 </table>
@@ -1278,7 +1328,7 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
         reportWindow.print();
       }, 500);
     },
-    
+
     generateRevenueReport() {
       const reportContent = `
         <!DOCTYPE html>
@@ -1297,6 +1347,7 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
                 th { background-color: #1e3c72; color: white; }
                 .positive { color: #065f46; }
                 .summary { background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #1e3c72; }
+                .distribution-bar { background: #1e3c72; height: 20px; border-radius: 10px; margin: 5px 0; }
             </style>
         </head>
         <body>
@@ -1306,22 +1357,23 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
             </div>
 
             <div class="section">
-                <h2>📊 Resumo do Faturamento</h2>
+                <h2>💰 Resumo do Faturamento</h2>
                 <div class="summary">
-                    <p><strong>Faturamento do Mês:</strong> <span class="positive">${this.formatCurrency(this.monthlyRevenue)}</span></p>
-                    <p><strong>Pagamentos Realizados:</strong> ${this.paidPayments.length}</p>
-                    <p><strong>Taxa de Pagamento:</strong> ${this.paidPercentage}%</p>
+                    <p><strong>Faturamento Total:</strong> <span class="positive">${this.formatCurrency(this.quickStats.monthlyRevenue)}</span></p>
+                    <p><strong>Pagamentos Realizados:</strong> ${this.quickStats.paidPayments}</p>
+                    <p><strong>Taxa de Pagamento:</strong> ${this.paidPercentage}% em dia</p>
                 </div>
             </div>
 
             <div class="section">
-                <h2>🏥 Faturamento por Convênio</h2>
+                <h2>🏥 Distribuição por Convênio</h2>
                 <table>
                     <thead>
                         <tr>
                             <th>Convênio</th>
                             <th>Valor</th>
                             <th>Participação</th>
+                            <th>Distribuição</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1330,10 +1382,26 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
                                 <td>${item.name}</td>
                                 <td>${this.formatCurrency(item.amount)}</td>
                                 <td>${item.percentage}%</td>
+                                <td>
+                                    <div class="distribution-bar" style="width: ${item.percentage}%"></div>
+                                </td>
                             </tr>
                         `).join('')}
+                        <tr>
+                            <td><strong>Total</strong></td>
+                            <td><strong>${this.formatCurrency(this.insuranceTotal)}</strong></td>
+                            <td><strong>100%</strong></td>
+                            <td></td>
+                        </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <div class="section">
+                <h2>📊 Faturamento Particular</h2>
+                <div class="summary">
+                    <p><strong>Total de Atendimentos Particulares:</strong> ${this.formatCurrency(this.particularTotal)}</p>
+                </div>
             </div>
         </body>
         </html>
@@ -1347,7 +1415,7 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
         reportWindow.print();
       }, 500);
     },
-    
+
     generateCashflowReport() {
       const reportContent = `
         <!DOCTYPE html>
@@ -1367,6 +1435,11 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
                 .positive { color: #065f46; }
                 .negative { color: #dc2626; }
                 .summary { background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #1e3c72; }
+                .cashflow-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 20px 0; }
+                .cashflow-card { padding: 15px; border-radius: 8px; text-align: center; }
+                .income-card { background: #d1fae5; border-left: 4px solid #065f46; }
+                .expense-card { background: #fecaca; border-left: 4px solid #dc2626; }
+                .balance-card { background: #dbeafe; border-left: 4px solid #1e40af; }
             </style>
         </head>
         <body>
@@ -1376,15 +1449,29 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
             </div>
 
             <div class="section">
-                <h2>📊 Resumo do Fluxo de Caixa</h2>
-                <div class="summary">
-                    <p><strong>Entradas:</strong> <span class="positive">${this.formatCurrency(this.cashflowSummary.income)}</span></p>
-                    <p><strong>Saídas:</strong> <span class="negative">${this.formatCurrency(this.cashflowSummary.expenses)}</span></p>
-                    <p><strong>Saldo Líquido:</strong> 
-                      <span class="${this.cashflowSummary.balance >= 0 ? 'positive' : 'negative'}">
-                        ${this.formatCurrency(this.cashflowSummary.balance)}
-                      </span>
-                    </p>
+                <h2>📈 Resumo do Fluxo de Caixa</h2>
+                <div class="cashflow-grid">
+                    <div class="cashflow-card income-card">
+                        <h3>Entradas</h3>
+                        <p style="font-size: 1.5em; font-weight: bold; color: #065f46;">
+                            +${this.formatCurrency(this.financialReport.summary?.totalRevenue || 0)}
+                        </p>
+                        <small>${this.financialReport.summary?.paymentCount || 0} recebimentos</small>
+                    </div>
+                    <div class="cashflow-card expense-card">
+                        <h3>Saídas</h3>
+                        <p style="font-size: 1.5em; font-weight: bold; color: #dc2626;">
+                            -${this.formatCurrency(this.financialReport.summary?.totalExpenses || 0)}
+                        </p>
+                        <small>${this.financialReport.summary?.expenseCount || 0} despesas</small>
+                    </div>
+                    <div class="cashflow-card balance-card">
+                        <h3>Saldo Líquido</h3>
+                        <p style="font-size: 1.5em; font-weight: bold; color: #1e40af;">
+                            ${this.formatCurrency(this.cashflowBalance)}
+                        </p>
+                        <small>Período: ${this.billingPeriodLabel}</small>
+                    </div>
                 </div>
             </div>
 
@@ -1394,8 +1481,8 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
                     <thead>
                         <tr>
                             <th>Descrição</th>
-                            <th>Categoria</th>
                             <th>Data</th>
+                            <th>Categoria</th>
                             <th>Valor</th>
                         </tr>
                     </thead>
@@ -1403,9 +1490,9 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
                         ${this.recentTransactions.map(transaction => `
                             <tr>
                                 <td>${transaction.description}</td>
-                                <td>${transaction.category}</td>
                                 <td>${this.formatDate(transaction.date)}</td>
-                                <td class="${transaction.type}">
+                                <td>${transaction.category}</td>
+                                <td style="color: ${transaction.type === 'income' ? '#065f46' : '#dc2626'}; font-weight: bold;">
                                     ${transaction.type === 'income' ? '+' : '-'}${this.formatCurrency(transaction.amount)}
                                 </td>
                             </tr>
@@ -1425,8 +1512,13 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
         reportWindow.print();
       }, 500);
     },
-    
+
     generateInsuranceReport() {
+      if (this.insuranceDistribution.length === 0) {
+        alert('Não há dados de convênios para gerar o relatório.');
+        return;
+      }
+
       const reportContent = `
         <!DOCTYPE html>
         <html lang="pt-BR">
@@ -1443,6 +1535,7 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
                 th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
                 th { background-color: #1e3c72; color: white; }
                 .summary { background: #f8fafc; padding: 15px; border-radius: 8px; border-left: 4px solid #1e3c72; }
+                .distribution-bar { background: linear-gradient(90deg, #1e3c72, #2a5298); height: 20px; border-radius: 10px; margin: 5px 0; }
             </style>
         </head>
         <body>
@@ -1455,23 +1548,53 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
                 <h2>📊 Desempenho por Convênio</h2>
                 <div class="summary">
                     <p><strong>Total de Convênios Ativos:</strong> ${this.insuranceDistribution.length}</p>
-                    <p><strong>Faturamento Total com Convênios:</strong> ${this.formatCurrency(this.billingStats.insurance)}</p>
+                    <p><strong>Faturamento Total com Convênios:</strong> ${this.formatCurrency(this.insuranceTotal)}</p>
                 </div>
             </div>
 
             <div class="section">
-                <h2>🏥 Detalhamento por Convênio</h2>
+                <h2>📈 Distribuição Detalhada</h2>
                 <table>
                     <thead>
                         <tr>
                             <th>Convênio</th>
-                            <th>Faturamento</th>
+                            <th>Valor Faturado</th>
                             <th>Participação</th>
+                            <th>Distribuição</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${this.insuranceDistribution.map(item => `
                             <tr>
+                                <td><strong>${item.name}</strong></td>
+                                <td>${this.formatCurrency(item.amount)}</td>
+                                <td>${item.percentage}%</td>
+                                <td>
+                                    <div class="distribution-bar" style="width: ${item.percentage}%"></div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2>🏆 Ranking de Convênios</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Posição</th>
+                            <th>Convênio</th>
+                            <th>Valor</th>
+                            <th>Participação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${this.insuranceDistribution
+                          .sort((a, b) => b.amount - a.amount)
+                          .map((item, index) => `
+                            <tr>
+                                <td>${index + 1}º</td>
                                 <td>${item.name}</td>
                                 <td>${this.formatCurrency(item.amount)}</td>
                                 <td>${item.percentage}%</td>
@@ -1730,6 +1853,11 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   color: #92400e;
 }
 
+.status-overdue {
+  background: #fecaca;
+  color: #dc2626;
+}
+
 .type-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 15px;
@@ -1765,6 +1893,7 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   font-size: 0.8rem;
   margin-right: 0.5rem;
   margin-bottom: 0.25rem;
+  transition: all 0.2s;
 }
 
 .pay-btn {
@@ -1773,14 +1902,35 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   font-weight: bold;
 }
 
+.pay-btn:hover {
+  background: #059669;
+}
+
 .view-btn {
   background: #dbeafe;
   color: #1e40af;
 }
 
+.view-btn:hover {
+  background: #bfdbfe;
+}
+
 .edit-btn {
   background: #fef3c7;
   color: #92400e;
+}
+
+.edit-btn:hover {
+  background: #fde68a;
+}
+
+.delete-btn {
+  background: #fecaca;
+  color: #dc2626;
+}
+
+.delete-btn:hover {
+  background: #fca5a5;
 }
 
 .billing-content {
@@ -2011,6 +2161,14 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   border-left: 4px solid #e2e8f0;
 }
 
+.transaction-item.income {
+  border-left-color: #10b981;
+}
+
+.transaction-item.expense {
+  border-left-color: #dc2626;
+}
+
 .transaction-icon {
   font-size: 1.5rem;
 }
@@ -2133,6 +2291,10 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   color: #666;
 }
 
+.close-btn:hover {
+  color: #333;
+}
+
 .modal-body {
   padding: 2rem;
 }
@@ -2177,6 +2339,7 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   border: 2px solid #e2e8f0;
   border-radius: 8px;
   font-size: 1rem;
+  transition: border-color 0.2s;
 }
 
 .form-group input:focus,
@@ -2199,6 +2362,11 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel:hover {
+  background: #e2e8f0;
 }
 
 .btn-save {
@@ -2209,6 +2377,11 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
   border-radius: 8px;
   font-weight: bold;
   cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.btn-save:hover {
+  transform: translateY(-2px);
 }
 
 .payment-details {
@@ -2241,5 +2414,48 @@ ${payment.observations ? `Observações: ${payment.observations}` : ''}
 .overdue-text {
   color: #dc2626;
   font-weight: bold;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .financial-view {
+    padding: 1rem;
+  }
+
+  .page-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .table-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .billing-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .financial-tabs {
+    overflow-x: auto;
+  }
+
+  .tabs-header {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .tab-button {
+    white-space: nowrap;
+  }
 }
 </style>

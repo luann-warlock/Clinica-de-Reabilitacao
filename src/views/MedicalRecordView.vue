@@ -1,6 +1,6 @@
 <template>
   <div class="medical-record-view">
-    <!-- Header da Página - ORIGINAL -->
+    <!-- Header da Página -->
     <div class="page-header">
       <div class="header-content">
         <h1>📋 Prontuário Eletrônico</h1>
@@ -16,46 +16,50 @@
       </div>
     </div>
 
-    <!-- Seleção de Paciente - ORIGINAL -->
+    <!-- Seleção de Paciente -->
     <div class="patient-selector">
       <div class="form-group">
         <label>Selecionar Paciente</label>
         <select v-model="selectedPatientId" @change="loadPatientData" class="patient-select">
           <option value="">Selecione um paciente</option>
-          <option v-for="patient in patients" :key="patient.id" :value="patient.id">
+          <option v-for="patient in patients" :key="patient._id" :value="patient._id">
             {{ patient.name }} ({{ patient.recordNumber }})
           </option>
         </select>
       </div>
     </div>
 
-    <!-- Info do Paciente Selecionado - ORIGINAL -->
-    <div v-if="selectedPatient" class="patient-info-card">
+    <!-- Info do Paciente Selecionado -->
+    <div v-if="currentPatientRecord" class="patient-info-card">
       <div class="patient-header">
-        <h3>{{ selectedPatient.name }}</h3>
-        <span class="patient-record">Prontuário: {{ selectedPatient.recordNumber }}</span>
+        <h3>{{ currentPatientRecord.name }}</h3>
+        <span class="patient-record">Prontuário: {{ currentPatientRecord.recordNumber }}</span>
       </div>
       <div class="patient-details">
         <div class="detail-item">
-          <strong>Idade:</strong> {{ selectedPatient.age }} anos
+          <strong>Idade:</strong> {{ currentPatientRecord.age }} anos
         </div>
         <div class="detail-item">
-          <strong>Gênero:</strong> {{ selectedPatient.gender }}
+          <strong>Gênero:</strong> {{ currentPatientRecord.gender }}
         </div>
         <div class="detail-item">
-          <strong>Admissão:</strong> {{ formatDate(selectedPatient.admissionDate) }}
+          <strong>Admissão:</strong> {{ formatDate(currentPatientRecord.admissionDate) }}
         </div>
         <div class="detail-item">
           <strong>Status:</strong> 
-          <span :class="['status-badge', `status-${selectedPatient.status}`]">
-            {{ getStatusLabel(selectedPatient.status) }}
+          <span :class="['status-badge', `status-${currentPatientRecord.status}`]">
+            {{ getStatusLabel(currentPatientRecord.status) }}
           </span>
+        </div>
+        <div class="detail-item" v-if="currentPatientRecord.mainSubstance">
+          <strong>Substância Principal:</strong> 
+          {{ getSubstanceLabel(currentPatientRecord.mainSubstance) }}
         </div>
       </div>
     </div>
 
-    <!-- Abas do Prontuário - ORIGINAL -->
-    <div v-if="selectedPatient" class="medical-record-tabs">
+    <!-- Abas do Prontuário -->
+    <div v-if="currentPatientRecord" class="medical-record-tabs">
       <div class="tabs-header">
         <button 
           v-for="tab in tabs" 
@@ -68,48 +72,48 @@
       </div>
 
       <div class="tab-content">
-        <!-- ABA: Histórico Médico - ORIGINAL -->
+        <!-- ABA: Histórico Médico -->
         <div v-if="currentTab === 'history'" class="tab-panel">
           <div class="section-header">
             <h3>🩺 Histórico Médico Completo</h3>
             <button class="btn-primary small" @click="openEditMedicalHistory">
-              ✏️ Editar Histórico
+              ✏️ {{ currentPatientRecord.medicalHistory ? 'Editar' : 'Preencher' }} Histórico
             </button>
           </div>
 
           <div class="history-sections">
-            <!-- Anamnese -->
+            <!-- Anamnese - ÚNICA SEÇÃO AGORA -->
             <div class="history-section">
               <h4>Anamnese e Avaliação Inicial</h4>
               <div class="history-content">
-                <div v-if="selectedPatient.medicalHistory" class="history-grid">
+                <div v-if="currentPatientRecord.medicalHistory" class="history-grid">
                   <div class="history-item">
                     <strong>Substância Principal:</strong>
-                    <span>{{ getSubstanceLabel(selectedPatient.medicalHistory.mainSubstance) }}</span>
+                    <span>{{ getSubstanceLabel(currentPatientRecord.medicalHistory.mainSubstance) }}</span>
                   </div>
                   <div class="history-item">
                     <strong>Tempo de Uso:</strong>
-                    <span>{{ selectedPatient.medicalHistory.usageTime }}</span>
+                    <span>{{ currentPatientRecord.medicalHistory.usageTime }}</span>
                   </div>
                   <div class="history-item">
                     <strong>Tratamentos Anteriores:</strong>
-                    <span>{{ selectedPatient.medicalHistory.previousTreatments || 'Nenhum' }}</span>
+                    <span>{{ currentPatientRecord.medicalHistory.previousTreatments || 'Nenhum' }}</span>
                   </div>
                   <div class="history-item">
                     <strong>Comorbidades:</strong>
-                    <span>{{ selectedPatient.medicalHistory.comorbidities || 'Nenhuma registrada' }}</span>
+                    <span>{{ currentPatientRecord.medicalHistory.comorbidities || 'Nenhuma registrada' }}</span>
                   </div>
                   <div class="history-item">
                     <strong>Medicações em Uso:</strong>
-                    <span>{{ selectedPatient.medicalHistory.currentMedications || 'Nenhuma' }}</span>
+                    <span>{{ currentPatientRecord.medicalHistory.currentMedications || 'Nenhuma' }}</span>
                   </div>
                   <div class="history-item">
                     <strong>Histórico Familiar:</strong>
-                    <span>{{ selectedPatient.medicalHistory.familyHistory || 'Não informado' }}</span>
+                    <span>{{ currentPatientRecord.medicalHistory.familyHistory || 'Não informado' }}</span>
                   </div>
                   <div class="history-item">
                     <strong>Alergias:</strong>
-                    <span>{{ selectedPatient.medicalHistory.allergies || 'Nenhuma conhecida' }}</span>
+                    <span>{{ currentPatientRecord.medicalHistory.allergies || 'Nenhuma conhecida' }}</span>
                   </div>
                 </div>
                 <div v-else class="empty-state">
@@ -120,25 +124,10 @@
                 </div>
               </div>
             </div>
-
-            <!-- Diagnósticos -->
-            <div class="history-section">
-              <h4>Diagnósticos</h4>
-              <div class="diagnoses-list">
-                <div v-for="diagnosis in selectedPatient.diagnoses" :key="diagnosis.id" class="diagnosis-item">
-                  <span class="diagnosis-code">{{ diagnosis.code }}</span>
-                  <span class="diagnosis-description">{{ diagnosis.description }}</span>
-                  <span class="diagnosis-date">{{ formatDate(diagnosis.date) }}</span>
-                </div>
-                <div v-if="!selectedPatient.diagnoses?.length" class="empty-state">
-                  <p>Nenhum diagnóstico registrado</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
-        <!-- ABA: Evoluções Clínicas - ORIGINAL -->
+        <!-- ABA: Evoluções Clínicas -->
         <div v-if="currentTab === 'evolutions'" class="tab-panel">
           <div class="section-header">
             <h3>📈 Evoluções Clínicas</h3>
@@ -148,7 +137,7 @@
           </div>
 
           <div class="evolutions-list">
-            <div v-for="evolution in selectedPatient.evolutions" :key="evolution.id" class="evolution-card">
+            <div v-for="evolution in currentPatientRecord.evolutions" :key="evolution._id || evolution.id" class="evolution-card">
               <div class="evolution-header">
                 <div class="evolution-meta">
                   <span class="evolution-date">{{ formatDateTime(evolution.date) }}</span>
@@ -173,7 +162,7 @@
               </div>
             </div>
 
-            <div v-if="!selectedPatient.evolutions?.length" class="empty-state">
+            <div v-if="!currentPatientRecord.evolutions?.length" class="empty-state">
               <p>Nenhuma evolução clínica registrada</p>
               <button class="btn-primary" @click="showNewEvolution = true">
                 Registrar Primeira Evolução
@@ -182,7 +171,7 @@
           </div>
         </div>
 
-        <!-- ABA: Prescrições - ORIGINAL -->
+        <!-- ABA: Prescrições - ATUALIZADA COM BOTÃO EDITAR -->
         <div v-if="currentTab === 'prescriptions'" class="tab-panel">
           <div class="section-header">
             <h3>💊 Prescrições Médicas</h3>
@@ -192,7 +181,7 @@
           </div>
 
           <div class="prescriptions-list">
-            <div v-for="prescription in selectedPatient.prescriptions" :key="prescription.id" class="prescription-card">
+            <div v-for="prescription in currentPatientRecord.prescriptions" :key="prescription._id || prescription.id" class="prescription-card">
               <div class="prescription-header">
                 <div class="prescription-info">
                   <h4>{{ prescription.medicationName }}</h4>
@@ -217,13 +206,22 @@
                 <div class="detail-item">
                   <strong>Prescritor:</strong> {{ prescription.prescribedBy }}
                 </div>
+                <div class="detail-item" v-if="prescription.duration">
+                  <strong>Duração:</strong> {{ prescription.duration }}
+                </div>
               </div>
               <div v-if="prescription.observations" class="prescription-observations">
                 <strong>Observações:</strong> {{ prescription.observations }}
               </div>
+              <!-- BOTÃO EDITAR ADICIONADO AQUI -->
+              <div class="prescription-actions">
+                <button class="action-btn edit-btn" @click="editPrescription(prescription)">
+                  ✏️ Editar
+                </button>
+              </div>
             </div>
 
-            <div v-if="!selectedPatient.prescriptions?.length" class="empty-state">
+            <div v-if="!currentPatientRecord.prescriptions?.length" class="empty-state">
               <p>Nenhuma prescrição registrada</p>
               <button class="btn-primary" @click="showNewPrescription = true">
                 Adicionar Prescrição
@@ -234,7 +232,7 @@
       </div>
     </div>
 
-    <!-- Modal Nova Evolução - ORIGINAL -->
+    <!-- Modal Nova Evolução -->
     <div v-if="showNewEvolution" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
@@ -287,7 +285,7 @@
       </div>
     </div>
 
-    <!-- Modal Nova Prescrição - ORIGINAL -->
+    <!-- Modal Nova Prescrição -->
     <div v-if="showNewPrescription" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
@@ -383,7 +381,7 @@
       </div>
     </div>
 
-    <!-- Modal Editar Histórico Médico - ORIGINAL -->
+    <!-- Modal Editar Histórico Médico -->
     <div v-if="showEditMedicalHistory" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
@@ -471,10 +469,120 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal Editar Prescrição - NOVO MODAL -->
+    <div v-if="showEditPrescription" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>✏️ Editar Prescrição Médica</h2>
+          <button class="close-btn" @click="showEditPrescription = false">×</button>
+        </div>
+        
+        <div class="modal-body">
+          <form @submit.prevent="updatePrescription" class="prescription-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Medicamento *</label>
+                <input 
+                  type="text" 
+                  v-model="editingPrescription.medicationName" 
+                  placeholder="Nome do medicamento"
+                  required
+                >
+              </div>
+              <div class="form-group">
+                <label>Dosagem *</label>
+                <input 
+                  type="text" 
+                  v-model="editingPrescription.dosage" 
+                  placeholder="Ex: 50mg, 10ml"
+                  required
+                >
+              </div>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>Via de Administração *</label>
+                <select v-model="editingPrescription.route" required>
+                  <option value="oral">Oral</option>
+                  <option value="intravenosa">Intravenosa</option>
+                  <option value="intramuscular">Intramuscular</option>
+                  <option value="subcutanea">Subcutânea</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Frequência *</label>
+                <select v-model="editingPrescription.frequency" required>
+                  <option value="dose-unica">Dose Única</option>
+                  <option value="4-4h">4/4 horas</option>
+                  <option value="6-6h">6/6 horas</option>
+                  <option value="8-8h">8/8 horas</option>
+                  <option value="12-12h">12/12 horas</option>
+                  <option value="diario">Diário</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label>Prescritor *</label>
+                <input 
+                  type="text" 
+                  v-model="editingPrescription.prescribedBy" 
+                  placeholder="Dr. Nome Completo"
+                  required
+                >
+              </div>
+              <div class="form-group">
+                <label>Duração</label>
+                <input 
+                  type="text" 
+                  v-model="editingPrescription.duration" 
+                  placeholder="Ex: 7 dias, até nova avaliação"
+                >
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Status</label>
+                <select v-model="editingPrescription.status" required>
+                  <option value="active">Ativa</option>
+                  <option value="completed">Concluída</option>
+                  <option value="suspended">Suspensa</option>
+                  <option value="cancelled">Cancelada</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="form-group">
+              <label>Observações</label>
+              <textarea 
+                v-model="editingPrescription.observations" 
+                rows="3"
+                placeholder="Observações específicas sobre a prescrição..."
+              ></textarea>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn-cancel" @click="showEditPrescription = false">
+                Cancelar
+              </button>
+              <button type="submit" class="btn-save">
+                💾 Atualizar Prescrição
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
+import api from '../services/api'
+
 export default {
   name: 'MedicalRecordView',
   data() {
@@ -484,6 +592,7 @@ export default {
       showNewEvolution: false,
       showNewPrescription: false,
       showEditMedicalHistory: false,
+      showEditPrescription: false, // 👈 NOVO: Controla modal de edição de prescrição
       tabs: [
         { id: 'history', label: '🩺 Histórico Médico' },
         { id: 'evolutions', label: '📈 Evoluções' },
@@ -512,113 +621,220 @@ export default {
         familyHistory: '',
         allergies: ''
       },
-      patients: [
-        {
-          id: 1,
-          name: 'João Silva Santos',
-          recordNumber: '2024-001',
-          age: 34,
-          gender: 'masculino',
-          admissionDate: '2024-01-15',
-          status: 'internado',
-          medicalHistory: {
-            mainSubstance: 'alcool',
-            usageTime: '8 anos',
-            previousTreatments: '2 internações anteriores',
-            comorbidities: 'Hipertensão, Ansiedade',
-            currentMedications: 'Sertralina 50mg, Losartana 50mg',
-            familyHistory: 'Pai com histórico de alcoolismo',
-            allergies: 'Penicilina'
-          },
-          diagnoses: [
-            {
-              id: 1,
-              code: 'F10.2',
-              description: 'Transtorno por uso de álcool - dependência',
-              date: '2024-01-15'
-            },
-            {
-              id: 2,
-              code: 'F41.1',
-              description: 'Transtorno de ansiedade generalizada',
-              date: '2024-01-16'
-            }
-          ],
-          evolutions: [
-            {
-              id: 1,
-              type: 'medical',
-              content: 'Paciente em abstinência alcoólica. Apresenta tremores finos e ansiedade. Sinais vitais estáveis. Iniciado protocolo de desintoxicação.',
-              author: 'Dr. Silva - Psiquiatra',
-              date: '2024-01-18T10:30:00',
-              medicationsPrescribed: ['Diazepam 10mg', 'Vitamina B1 100mg']
-            },
-            {
-              id: 2,
-              type: 'nursing',
-              content: 'Paciente colaborativo. Aceitando medicação. Sono preservado. Apetite reduzido.',
-              author: 'Enf. Ana Souza',
-              date: '2024-01-18T14:15:00'
-            }
-          ],
-          prescriptions: [
-            {
-              id: 1,
-              medicationName: 'Diazepam',
-              dosage: '10mg',
-              route: 'oral',
-              frequency: '8-8h',
-              prescribedBy: 'Dr. Silva',
-              date: '2024-01-15',
-              status: 'active',
-              duration: '7 dias',
-              observations: 'Reduzir gradualmente a partir do 4º dia'
-            },
-            {
-              id: 2,
-              medicationName: 'Vitamina B1',
-              dosage: '100mg',
-              route: 'oral',
-              frequency: 'diario',
-              prescribedBy: 'Dr. Silva',
-              date: '2024-01-15',
-              status: 'active',
-              observations: 'Prevenção de síndrome de Wernicke-Korsakoff'
-            }
-          ]
-        },
-        {
-          id: 2,
-          name: 'Maria Oliveira Costa',
-          recordNumber: '2024-002',
-          age: 28,
-          gender: 'feminino',
-          admissionDate: '2024-01-16',
-          status: 'internado'
-        }
-      ]
+      editingPrescription: null, // 👈 NOVO: Armazena prescrição sendo editada
+      patients: [],
+      _currentPatientRecord: null
     }
   },
   computed: {
     selectedPatient() {
-      return this.patients.find(p => p.id == this.selectedPatientId) || null
+      return this.patients.find(p => p._id == this.selectedPatientId) || null
+    },
+    currentPatientRecord() {
+      return this._currentPatientRecord || this.selectedPatient
     }
   },
+  async created() {
+    await this.loadPatientsFromBackend()
+  },
   methods: {
-    // ... (todos os métodos permanecem EXATAMENTE iguais) ...
-    // Manter todos os métodos da versão anterior
-    loadPatientData() {
-      console.log('Carregando dados do paciente:', this.selectedPatientId)
+    // 🔄 CARREGAR PACIENTES DO BACKEND
+    async loadPatientsFromBackend() {
+      try {
+        console.log('🔄 Carregando pacientes do backend...')
+        const response = await api.get('/patients')
+        this.patients = response.data
+        console.log('✅ Pacientes carregados:', this.patients.length)
+      } catch (error) {
+        console.error('❌ Erro ao carregar pacientes:', error)
+        this.patients = []
+      }
+    },
+
+    // 🔄 CARREGAR DADOS DO PACIENTE DO BACKEND
+    async loadPatientData() {
+      if (!this.selectedPatientId) return;
+      
+      console.log('🔄 Carregando dados do paciente:', this.selectedPatientId);
+      
+      try {
+        const response = await api.get(`/medical-records/patient/${this.selectedPatientId}`)
+        const record = response.data;
+        
+        console.log('✅ Prontuário carregado do backend:', record);
+        
+        this._currentPatientRecord = {
+          _id: this.selectedPatientId,
+          name: record.patientInfo?.name || this.selectedPatient.name,
+          recordNumber: record.patientInfo?.recordNumber || this.selectedPatient.recordNumber,
+          age: record.patientInfo?.age || this.selectedPatient.age,
+          gender: record.patientInfo?.gender || this.selectedPatient.gender,
+          admissionDate: record.patientInfo?.admissionDate || this.selectedPatient.admissionDate,
+          status: record.patientInfo?.status || this.selectedPatient.status,
+          mainSubstance: record.patientInfo?.mainSubstance || this.selectedPatient.mainSubstance,
+          
+          medicalHistory: record.medicalHistory || null,
+          evolutions: record.evolutions || [],
+          prescriptions: record.prescriptions || []
+        };
+        
+      } catch (error) {
+        console.error('❌ Erro ao carregar prontuário:', error);
+        
+        this._currentPatientRecord = {
+          ...this.selectedPatient,
+          medicalHistory: null,
+          evolutions: [],
+          prescriptions: []
+        };
+        
+        console.log('ℹ️ Usando dados básicos do paciente (prontuário não encontrado)');
+      }
     },
     
+    // 💾 SALVAR EVOLUÇÃO NO BACKEND
+    async saveEvolution() {
+      if (!this.currentPatientRecord) return;
+      
+      try {
+        console.log('🔄 Salvando evolução no backend...')
+        const response = await api.post(`/medical-records/patient/${this.selectedPatientId}/evolutions`, {
+          type: this.newEvolution.type,
+          content: this.newEvolution.content,
+          author: this.newEvolution.author
+        })
+        
+        console.log('✅ Evolução salva no backend:', response.data)
+        
+        if (!this._currentPatientRecord.evolutions) {
+          this._currentPatientRecord.evolutions = []
+        }
+        this._currentPatientRecord.evolutions.unshift(response.data)
+        this.showNewEvolution = false
+        this.resetNewEvolution()
+        
+        alert('Evolução registrada com sucesso!')
+      } catch (error) {
+        console.error('❌ Erro ao salvar evolução:', error)
+        alert('Erro ao salvar evolução: ' + (error.response?.data?.error || error.message))
+      }
+    },
+    
+    // 💾 SALVAR PRESCRIÇÃO NO BACKEND
+    async savePrescription() {
+      if (!this.currentPatientRecord) return;
+      
+      try {
+        console.log('🔄 Salvando prescrição no backend...')
+        const response = await api.post(`/medical-records/patient/${this.selectedPatientId}/prescriptions`, {
+          medicationName: this.newPrescription.medicationName,
+          dosage: this.newPrescription.dosage,
+          route: this.newPrescription.route,
+          frequency: this.newPrescription.frequency,
+          prescribedBy: this.newPrescription.prescribedBy,
+          duration: this.newPrescription.duration,
+          observations: this.newPrescription.observations
+        })
+        
+        console.log('✅ Prescrição salva no backend:', response.data)
+        
+        if (!this._currentPatientRecord.prescriptions) {
+          this._currentPatientRecord.prescriptions = []
+        }
+        this._currentPatientRecord.prescriptions.unshift(response.data)
+        this.showNewPrescription = false
+        this.resetNewPrescription()
+        
+        alert('Prescrição salva com sucesso!')
+      } catch (error) {
+        console.error('❌ Erro ao salvar prescrição:', error)
+        alert('Erro ao salvar prescrição: ' + (error.response?.data?.error || error.message))
+      }
+    },
+    
+    // 💾 SALVAR HISTÓRICO MÉDICO NO BACKEND
+    async saveMedicalHistory() {
+      if (!this.currentPatientRecord) return;
+      
+      try {
+        console.log('🔄 Salvando histórico médico no backend...')
+        
+        const response = await api.put(`/medical-records/patient/${this.selectedPatientId}/medical-history`, 
+          this.editingMedicalHistory
+        )
+        
+        console.log('✅ Histórico médico salvo no backend:', response.data)
+        
+        this._currentPatientRecord.medicalHistory = { ...this.editingMedicalHistory }
+        this.showEditMedicalHistory = false
+        
+        alert('Histórico médico salvo com sucesso!')
+      } catch (error) {
+        console.error('❌ Erro ao salvar histórico médico:', error)
+        alert('Erro ao salvar histórico médico: ' + (error.response?.data?.error || error.message))
+      }
+    },
+
+    // ✏️ ABRIR EDIÇÃO DE PRESCRIÇÃO - NOVO MÉTODO
+    editPrescription(prescription) {
+      this.editingPrescription = { ...prescription };
+      this.showEditPrescription = true;
+    },
+
+    // 💾 ATUALIZAR PRESCRIÇÃO - NOVO MÉTODO
+    async updatePrescription() {
+      if (!this.currentPatientRecord || !this.editingPrescription) return;
+      
+      try {
+        console.log('🔄 Atualizando prescrição no backend...');
+        
+        // Encontramos o índice da prescrição na lista
+        const prescriptionIndex = this._currentPatientRecord.prescriptions.findIndex(
+          p => (p._id && p._id === this.editingPrescription._id) || 
+               (p.id && p.id === this.editingPrescription.id)
+        );
+        
+        if (prescriptionIndex !== -1) {
+          // Atualizamos a prescrição na lista local
+          this._currentPatientRecord.prescriptions[prescriptionIndex] = { 
+            ...this.editingPrescription 
+          };
+          
+          // Atualizamos o prontuário completo no backend
+          const recordData = {
+            prescriptions: this._currentPatientRecord.prescriptions,
+            medicalHistory: this._currentPatientRecord.medicalHistory,
+            evolutions: this._currentPatientRecord.evolutions
+          };
+          
+          await api.post(`/medical-records/patient/${this.selectedPatientId}`, recordData);
+          
+          console.log('✅ Prescrição atualizada no backend');
+          this.showEditPrescription = false;
+          this.editingPrescription = null;
+          
+          alert('Prescrição atualizada com sucesso!');
+        } else {
+          alert('Prescrição não encontrada para edição.');
+        }
+      } catch (error) {
+        console.error('❌ Erro ao atualizar prescrição:', error);
+        alert('Erro ao atualizar prescrição: ' + (error.response?.data?.error || error.message));
+      }
+    },
+    
+    // 📅 FORMATAÇÃO DE DATAS
     formatDate(dateString) {
+      if (!dateString) return '---'
       return new Date(dateString).toLocaleDateString('pt-BR')
     },
     
     formatDateTime(dateTimeString) {
+      if (!dateTimeString) return '---'
       return new Date(dateTimeString).toLocaleString('pt-BR')
     },
     
+    // 🏷️ LABELS E TRADUÇÕES
     getStatusLabel(status) {
       const labels = {
         triagem: 'Em Triagem',
@@ -676,15 +892,15 @@ export default {
         '6-6h': '6/6 horas',
         '8-8h': '8/8 horas',
         '12-12h': '12/12 horas',
-        'diario': 'Diário',
-        'semanal': 'Semanal'
+        'diario': 'Diário'
       }
       return labels[frequency] || frequency
     },
     
+    // 📝 MÉTODOS DE INTERFACE
     openEditMedicalHistory() {
-      if (this.selectedPatient.medicalHistory) {
-        this.editingMedicalHistory = { ...this.selectedPatient.medicalHistory }
+      if (this._currentPatientRecord.medicalHistory) {
+        this.editingMedicalHistory = { ...this._currentPatientRecord.medicalHistory }
       } else {
         this.editingMedicalHistory = {
           mainSubstance: 'alcool',
@@ -697,15 +913,6 @@ export default {
         }
       }
       this.showEditMedicalHistory = true
-    },
-    
-    saveMedicalHistory() {
-      if (!this.selectedPatient.medicalHistory) {
-        this.selectedPatient.medicalHistory = {}
-      }
-      this.selectedPatient.medicalHistory = { ...this.editingMedicalHistory }
-      this.showEditMedicalHistory = false
-      alert('Histórico médico salvo com sucesso!')
     },
     
     viewEvolution(evolution) {
@@ -723,55 +930,6 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
       `.trim()
       
       alert(details)
-    },
-    
-    saveEvolution() {
-      if (!this.selectedPatient) return
-      
-      const newEvolution = {
-        id: this.selectedPatient.evolutions ? this.selectedPatient.evolutions.length + 1 : 1,
-        type: this.newEvolution.type,
-        content: this.newEvolution.content,
-        author: this.newEvolution.author,
-        date: new Date().toISOString()
-      }
-      
-      if (!this.selectedPatient.evolutions) {
-        this.selectedPatient.evolutions = []
-      }
-      
-      this.selectedPatient.evolutions.unshift(newEvolution)
-      this.showNewEvolution = false
-      this.resetNewEvolution()
-      
-      alert('Evolução registrada com sucesso!')
-    },
-    
-    savePrescription() {
-      if (!this.selectedPatient) return
-      
-      const newPrescription = {
-        id: this.selectedPatient.prescriptions ? this.selectedPatient.prescriptions.length + 1 : 1,
-        medicationName: this.newPrescription.medicationName,
-        dosage: this.newPrescription.dosage,
-        route: this.newPrescription.route,
-        frequency: this.newPrescription.frequency,
-        prescribedBy: this.newPrescription.prescribedBy,
-        date: new Date().toISOString().split('T')[0],
-        status: 'active',
-        duration: this.newPrescription.duration,
-        observations: this.newPrescription.observations
-      }
-      
-      if (!this.selectedPatient.prescriptions) {
-        this.selectedPatient.prescriptions = []
-      }
-      
-      this.selectedPatient.prescriptions.unshift(newPrescription)
-      this.showNewPrescription = false
-      this.resetNewPrescription()
-      
-      alert('Prescrição salva com sucesso!')
     },
     
     resetNewEvolution() {
@@ -794,8 +952,9 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
       }
     },
     
+    // 📊 GERAR RELATÓRIO
     generateRealReport() {
-      if (!this.selectedPatient) {
+      if (!this.currentPatientRecord) {
         alert('Selecione um paciente para gerar o relatório.')
         return
       }
@@ -806,7 +965,7 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
         <html lang="pt-BR">
         <head>
             <meta charset="UTF-8">
-            <title>Relatório Médico - ${this.selectedPatient.name}</title>
+            <title>Relatório Médico - ${this.currentPatientRecord.name}</title>
             <style>
                 body { 
                     font-family: Arial, sans-serif; 
@@ -900,59 +1059,35 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
                 <h2>📋 Dados do Paciente</h2>
                 <div class="patient-info">
                     <div class="info-grid">
-                        <div class="info-item"><strong>Nome:</strong> ${this.selectedPatient.name}</div>
-                        <div class="info-item"><strong>Prontuário:</strong> ${this.selectedPatient.recordNumber}</div>
-                        <div class="info-item"><strong>Idade:</strong> ${this.selectedPatient.age} anos</div>
-                        <div class="info-item"><strong>Gênero:</strong> ${this.selectedPatient.gender}</div>
-                        <div class="info-item"><strong>Data de Admissão:</strong> ${this.formatDate(this.selectedPatient.admissionDate)}</div>
-                        <div class="info-item"><strong>Status:</strong> ${this.getStatusLabel(this.selectedPatient.status)}</div>
+                        <div class="info-item"><strong>Nome:</strong> ${this.currentPatientRecord.name}</div>
+                        <div class="info-item"><strong>Prontuário:</strong> ${this.currentPatientRecord.recordNumber}</div>
+                        <div class="info-item"><strong>Idade:</strong> ${this.currentPatientRecord.age} anos</div>
+                        <div class="info-item"><strong>Gênero:</strong> ${this.currentPatientRecord.gender}</div>
+                        <div class="info-item"><strong>Data de Admissão:</strong> ${this.formatDate(this.currentPatientRecord.admissionDate)}</div>
+                        <div class="info-item"><strong>Status:</strong> ${this.getStatusLabel(this.currentPatientRecord.status)}</div>
                     </div>
                 </div>
             </div>
 
             <div class="section">
                 <h2>🩺 Histórico Médico</h2>
-                ${this.selectedPatient.medicalHistory ? `
+                ${this.currentPatientRecord.medicalHistory ? `
                     <div class="info-grid">
-                        <div class="info-item"><strong>Substância Principal:</strong> ${this.getSubstanceLabel(this.selectedPatient.medicalHistory.mainSubstance)}</div>
-                        <div class="info-item"><strong>Tempo de Uso:</strong> ${this.selectedPatient.medicalHistory.usageTime}</div>
-                        <div class="info-item"><strong>Tratamentos Anteriores:</strong> ${this.selectedPatient.medicalHistory.previousTreatments || 'Nenhum'}</div>
-                        <div class="info-item"><strong>Comorbidades:</strong> ${this.selectedPatient.medicalHistory.comorbidities || 'Nenhuma'}</div>
-                        <div class="info-item"><strong>Medicações em Uso:</strong> ${this.selectedPatient.medicalHistory.currentMedications || 'Nenhuma'}</div>
-                        <div class="info-item"><strong>Histórico Familiar:</strong> ${this.selectedPatient.medicalHistory.familyHistory || 'Não informado'}</div>
-                        <div class="info-item"><strong>Alergias:</strong> ${this.selectedPatient.medicalHistory.allergies || 'Nenhuma conhecida'}</div>
+                        <div class="info-item"><strong>Substância Principal:</strong> ${this.getSubstanceLabel(this.currentPatientRecord.medicalHistory.mainSubstance)}</div>
+                        <div class="info-item"><strong>Tempo de Uso:</strong> ${this.currentPatientRecord.medicalHistory.usageTime}</div>
+                        <div class="info-item"><strong>Tratamentos Anteriores:</strong> ${this.currentPatientRecord.medicalHistory.previousTreatments || 'Nenhum'}</div>
+                        <div class="info-item"><strong>Comorbidades:</strong> ${this.currentPatientRecord.medicalHistory.comorbidities || 'Nenhuma'}</div>
+                        <div class="info-item"><strong>Medicações em Uso:</strong> ${this.currentPatientRecord.medicalHistory.currentMedications || 'Nenhuma'}</div>
+                        <div class="info-item"><strong>Histórico Familiar:</strong> ${this.currentPatientRecord.medicalHistory.familyHistory || 'Não informado'}</div>
+                        <div class="info-item"><strong>Alergias:</strong> ${this.currentPatientRecord.medicalHistory.allergies || 'Nenhuma conhecida'}</div>
                     </div>
                 ` : '<p>Histórico médico não preenchido.</p>'}
             </div>
 
-            ${this.selectedPatient.diagnoses && this.selectedPatient.diagnoses.length > 0 ? `
-            <div class="section">
-                <h2>📝 Diagnósticos</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Código</th>
-                            <th>Descrição</th>
-                            <th>Data</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${this.selectedPatient.diagnoses.map(diagnosis => `
-                            <tr>
-                                <td>${diagnosis.code}</td>
-                                <td>${diagnosis.description}</td>
-                                <td>${this.formatDate(diagnosis.date)}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-            ` : ''}
-
-            ${this.selectedPatient.evolutions && this.selectedPatient.evolutions.length > 0 ? `
+            ${this.currentPatientRecord.evolutions && this.currentPatientRecord.evolutions.length > 0 ? `
             <div class="section">
                 <h2>📈 Evoluções Clínicas</h2>
-                ${this.selectedPatient.evolutions.map(evolution => `
+                ${this.currentPatientRecord.evolutions.map(evolution => `
                     <div class="evolution-card">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
                             <strong>${this.formatDateTime(evolution.date)}</strong>
@@ -967,7 +1102,7 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
             </div>
             ` : ''}
 
-            ${this.selectedPatient.prescriptions && this.selectedPatient.prescriptions.length > 0 ? `
+            ${this.currentPatientRecord.prescriptions && this.currentPatientRecord.prescriptions.length > 0 ? `
             <div class="section">
                 <h2>💊 Prescrições Médicas</h2>
                 <table>
@@ -982,7 +1117,7 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
                         </tr>
                     </thead>
                     <tbody>
-                        ${this.selectedPatient.prescriptions.map(prescription => `
+                        ${this.currentPatientRecord.prescriptions.map(prescription => `
                             <tr>
                                 <td>${prescription.medicationName}</td>
                                 <td>${prescription.dosage}</td>
@@ -1020,7 +1155,6 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
 </script>
 
 <style scoped>
-/* ESTILOS ORIGINAIS RESTAURADOS */
 .medical-record-view {
   padding: 2rem;
   max-width: 1400px;
@@ -1029,7 +1163,6 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   min-height: 100vh;
 }
 
-/* Header */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -1090,7 +1223,6 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   background: #e2e8f0;
 }
 
-/* Seletor de Paciente */
 .patient-selector {
   background: white;
   padding: 1.5rem;
@@ -1117,7 +1249,6 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   font-size: 1rem;
 }
 
-/* Info do Paciente */
 .patient-info-card {
   background: white;
   padding: 1.5rem;
@@ -1155,7 +1286,6 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   gap: 0.25rem;
 }
 
-/* Abas */
 .medical-record-tabs {
   background: white;
   border-radius: 10px;
@@ -1190,7 +1320,6 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   padding: 2rem;
 }
 
-/* Conteúdo das Abas */
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -1203,7 +1332,6 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   margin: 0;
 }
 
-/* Histórico Médico */
 .history-sections {
   display: flex;
   flex-direction: column;
@@ -1235,7 +1363,6 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   border-bottom: 1px solid #e2e8f0;
 }
 
-/* Evoluções */
 .evolutions-list {
   display: flex;
   flex-direction: column;
@@ -1315,7 +1442,6 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   font-size: 0.9rem;
 }
 
-/* Prescrições */
 .prescriptions-list {
   display: flex;
   flex-direction: column;
@@ -1327,6 +1453,7 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   padding: 1.5rem;
   border-radius: 8px;
   border-left: 4px solid #1e3c72;
+  position: relative;
 }
 
 .prescription-header {
@@ -1353,20 +1480,39 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   margin-bottom: 1rem;
 }
 
-.detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
 .prescription-observations {
   padding: 1rem;
   background: white;
   border-radius: 6px;
   border-left: 3px solid #e2e8f0;
+  margin-bottom: 1rem;
 }
 
-/* Estados Vazios */
+/* NOVOS ESTILOS PARA BOTÕES DE AÇÃO NAS PRESCRIÇÕES */
+.prescription-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.edit-btn {
+  background: #fef3c7;
+  color: #92400e;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.3s;
+}
+
+.edit-btn:hover {
+  background: #f59e0b;
+  color: white;
+}
+
 .empty-state {
   text-align: center;
   padding: 3rem;
@@ -1377,7 +1523,6 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   margin-bottom: 1rem;
 }
 
-/* Badges e Status */
 .status-badge {
   padding: 0.25rem 0.75rem;
   border-radius: 15px;
@@ -1420,7 +1565,6 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   color: #dc2626;
 }
 
-/* Botões de Ação */
 .action-btn {
   padding: 0.5rem 1rem;
   border: none;
@@ -1428,6 +1572,7 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   cursor: pointer;
   font-size: 0.8rem;
   margin-right: 0.5rem;
+  transition: all 0.3s;
 }
 
 .view-btn {
@@ -1435,7 +1580,11 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   color: #1e40af;
 }
 
-/* Modal */
+.view-btn:hover {
+  background: #3b82f6;
+  color: white;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1483,7 +1632,6 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   padding: 2rem;
 }
 
-/* Formulários */
 .evolution-form,
 .prescription-form,
 .medical-history-form {
@@ -1548,38 +1696,5 @@ ${evolution.medicationsPrescribed ? `Medicações: ${evolution.medicationsPrescr
   border-radius: 8px;
   font-weight: bold;
   cursor: pointer;
-}
-
-/* Diagnósticos */
-.diagnoses-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.diagnosis-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background: white;
-  border-radius: 6px;
-  border-left: 3px solid #1e3c72;
-}
-
-.diagnosis-code {
-  font-weight: bold;
-  color: #1e3c72;
-  min-width: 80px;
-}
-
-.diagnosis-description {
-  flex: 1;
-  margin: 0 1rem;
-}
-
-.diagnosis-date {
-  color: #666;
-  font-size: 0.9rem;
 }
 </style>
