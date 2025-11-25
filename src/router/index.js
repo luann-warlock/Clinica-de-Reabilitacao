@@ -2,6 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import AboutView from '../views/AboutView.vue'
 import LoginView from '../views/LoginView.vue'
+import BedManagementView from '@/views/BedManagementView.vue'
+import TherapeuticActivitiesView from '@/views/TherapeuticActivitiesView.vue'
+import RegisterView from '@/views/RegisterView.vue'
 
 const routes = [
   {
@@ -44,6 +47,21 @@ const routes = [
     name: 'financial',
     component: () => import('../views/FinancialView.vue'),
   },
+  {
+    path: '/beds',
+    name: 'beds',
+    component: BedManagementView
+  },
+  {
+    path: '/activities',
+    name: 'activities',
+    component: TherapeuticActivitiesView
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: RegisterView
+  }
 ]
 
 const router = createRouter({

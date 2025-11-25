@@ -4,17 +4,20 @@
     <main>
       <router-view />
     </main>
+    <NavigationButtons />
   </div>
 </template>
 
 <script>
 import HeaderComponent from './components/HeaderComponent.vue'
+import NavigationButtons from './components/NavigationButtons.vue'
 
 export default {
   name: 'App',
   components: {
     HeaderComponent,
-  },
+    NavigationButtons
+  }
 }
 </script>
 
@@ -34,9 +37,13 @@ body {
 
 #app {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 main {
   min-height: calc(100vh - 120px);
+  flex: 1;
+  padding-top: 0;
 }
 </style>

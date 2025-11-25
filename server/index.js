@@ -1,31 +1,38 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-require('dotenv').config();
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
 
-// Importar rotas
-const admissionRoutes = require('./routes/admissionRoutes');
-const medicalRecordRoutes = require('./routes/medicalRecordRoutes');
-const financialRoutes = require('./routes/financialRoutes'); // 👈 ADICIONADO
+// 👇 IMPORTAR TODAS AS ROTAS (ES Modules - Italo)
+import bedRoutes from './routes/bedRoutes.js';
+import activityRoutes from './routes/activityRoutes.js';
+import authRoutes from './routes/authRoutes.js';
+
+// 👇 IMPORTAR SUAS ROTAS (convertidas para ES Modules)
+import admissionRoutes from './routes/admissionRoutes.js';
+import medicalRecordRoutes from './routes/medicalRecordRoutes.js';
+import financialRoutes from './routes/financialRoutes.js';
 
 const app = express();
 
-// Middleware
+// Middlewares
 app.use(cors());
 app.use(express.json());
 
 // Conexão com MongoDB
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/clinica-reabilitacao')
-.then(() => console.log('✅ Conectado ao MongoDB'))
-.catch(err => console.log('❌ Erro MongoDB:', err.message));
+  .then(() => console.log('✅ Conectado ao MongoDB'))
+  .catch(err => console.log('❌ Erro MongoDB:', err.message));
 
-// 👇 USAR ROTAS DE ADMISSÃO DO MONGODB
+// 👇 USAR TODAS AS ROTAS - SUAS E DO ITALO
+
+// Rotas do Italo (Gestão de Leitos e Atividades)
+app.use('/api/beds', bedRoutes);
+app.use('/api/activities', activityRoutes);
+app.use('/api/auth', authRoutes);
+
+// Suas Rotas (Admissão, Prontuário, Financeiro)
 app.use('/api/patients', admissionRoutes);
-
-// 👇 USAR ROTAS DO PRONTUÁRIO DO MONGODB
 app.use('/api/medical-records', medicalRecordRoutes);
-
-// 👇 USAR ROTAS DO FINANCEIRO DO MONGODB (ADICIONADO)
 app.use('/api/financial', financialRoutes);
 
 // Rotas básicas de saúde
@@ -39,7 +46,10 @@ app.get('/api/health', (req, res) => {
       patients: '✅',
       medicalRecords: '✅', 
       financial: '✅',
-      medications: '✅'
+      medications: '✅',
+      beds: '✅',
+      activities: '✅',
+      auth: '✅'
     }
   });
 });
@@ -48,11 +58,11 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ 
     message: 'API da Clínica de Reabilitação - Backend Online',
-    modules: ['patients', 'medical-records', 'financial', 'medications']
+    modules: ['patients', 'medical-records', 'financial', 'medications', 'beds', 'activities', 'auth']
   });
 });
 
-// 👇 ROTAS PARA MEDICAÇÕES (MANTIDAS EM MEMÓRIA) 👇
+// 👇 SUAS ROTAS DE MEDICAÇÕES (mantidas em memória)
 let medications = [];
 let nextMedicationId = 1;
 
@@ -151,6 +161,25 @@ app.get('/api', (req, res) => {
         'POST /api/financial/expenses': 'Criar despesa',
         'GET /api/financial/reports': 'Relatórios financeiros',
         'GET /api/financial/stats': 'Estatísticas rápidas'
+      },
+      // Novos endpoints do Italo
+      beds: {
+        'GET /api/beds': 'Listar leitos',
+        'POST /api/beds': 'Criar leito',
+        'GET /api/beds/:id': 'Buscar leito por ID',
+        'PUT /api/beds/:id': 'Atualizar leito',
+        'DELETE /api/beds/:id': 'Deletar leito'
+      },
+      activities: {
+        'GET /api/activities': 'Listar atividades',
+        'POST /api/activities': 'Criar atividade',
+        'GET /api/activities/:id': 'Buscar atividade por ID',
+        'PUT /api/activities/:id': 'Atualizar atividade',
+        'DELETE /api/activities/:id': 'Deletar atividade'
+      },
+      auth: {
+        'POST /api/auth/register': 'Registrar usuário',
+        'POST /api/auth/login': 'Login'
       }
     }
   });
@@ -184,6 +213,9 @@ app.listen(PORT, () => {
   console.log(`   💊 Medicações:    http://localhost:${PORT}/api/medications`);
   console.log(`   📋 Prontuário:    http://localhost:${PORT}/api/medical-records/patient/1`);
   console.log(`   💰 Financeiro:    http://localhost:${PORT}/api/financial/payments`);
+  console.log(`   🛏️  Leitos:        http://localhost:${PORT}/api/beds`);
+  console.log(`   🎯 Atividades:    http://localhost:${PORT}/api/activities`);
+  console.log(`   🔐 Autenticação:  http://localhost:${PORT}/api/auth`);
   console.log(`   📊 Estatísticas:  http://localhost:${PORT}/api/patients/stats/admissions`);
   console.log(`   🩺 Health Check:  http://localhost:${PORT}/api/health`);
   console.log(`   📖 Documentação:  http://localhost:${PORT}/api`);
@@ -191,4 +223,7 @@ app.listen(PORT, () => {
   console.log(`✅ Módulo de Admissão com MongoDB integrado!`);
   console.log(`✅ Módulo de Prontuário com MongoDB integrado!`);
   console.log(`✅ Módulo Financeiro com MongoDB integrado!`);
+  console.log(`✅ Módulo de Leitos com MongoDB integrado!`);
+  console.log(`✅ Módulo de Atividades com MongoDB integrado!`);
+  console.log(`✅ Módulo de Autenticação com MongoDB integrado!`);
 });
