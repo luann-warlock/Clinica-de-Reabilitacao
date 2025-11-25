@@ -1,15 +1,12 @@
 <template>
   <div class="dashboard">
-    <!-- Header Personalizado -->
+    <!-- Header Personalizado Simplificado -->
     <div class="dashboard-header">
       <div class="welcome-section">
         <h1>Dashboard - Sistema de Gestão</h1>
         <p class="user-welcome">Bem-vindo, <strong>{{ user.name }}</strong> | {{ getUserTypeLabel(user.userType) }}</p>
       </div>
-      <div class="header-actions">
-        <button class="btn-report" @click="generateReport">📊 Relatório Diário</button>
-        <button class="btn-profile" @click="viewProfile">👤 Meu Perfil</button>
-      </div>
+      <!-- REMOVIDOS: Botões Relatório Diário e Meu Perfil -->
     </div>
 
     <!-- Métricas Principais -->
@@ -81,55 +78,26 @@
       </div>
     </div>
 
-    <!-- Ações Rápidas por Tipo de Usuário -->
+    <!-- Ações Rápidas Simplificadas -->
     <div class="quick-actions">
       <h2>Ações Rápidas</h2>
       <div class="actions-grid">
-        <!-- Ações para Médico -->
-        <div v-if="user.userType === 'medico_psiquiatra'" class="action-item">
-          <div class="action-icon">📝</div>
-          <span>Prescrever Medicação</span>
-        </div>
-
-        <div v-if="user.userType === 'medico_psiquiatra'" class="action-item">
-          <div class="action-icon">🔍</div>
-          <span>Avaliar Paciente</span>
-        </div>
-
-        <!-- Ações para Enfermeiro -->
-        <div v-if="user.userType === 'enfermeiro'" class="action-item">
-          <div class="action-icon">💉</div>
-          <span>Administrar Medicação</span>
-        </div>
-
-        <div v-if="user.userType === 'enfermeiro'" class="action-item">
-          <div class="action-icon">📊</div>
-          <span>Registrar Sinais Vitais</span>
-        </div>
-
-        <!-- Ações para Terapeuta -->
-        <div v-if="user.userType === 'terapeuta'" class="action-item">
-          <div class="action-icon">🎯</div>
-          <span>Agendar Sessão</span>
-        </div>
-
-        <div v-if="user.userType === 'terapeuta'" class="action-item">
-          <div class="action-icon">📈</div>
-          <span>Registrar Evolução</span>
-        </div>
-
-        <!-- Ações para Administrador -->
-        <div v-if="user.userType === 'administrador'" class="action-item">
+        <!-- Apenas ações que funcionam -->
+        <div class="action-item" @click="$router.push('/admission')">
           <div class="action-icon">👥</div>
-          <span>Gerenciar Usuários</span>
+          <span>Admitir Paciente</span>
         </div>
 
-        <div v-if="user.userType === 'administrador'" class="action-item">
+        <div class="action-item" @click="$router.push('/medical-record')">
+          <div class="action-icon">📋</div>
+          <span>Prontuário Eletrônico</span>
+        </div>
+
+        <div class="action-item" @click="$router.push('/financial')">
           <div class="action-icon">💰</div>
-          <span>Relatórios Financeiros</span>
+          <span>Gestão Financeira</span>
         </div>
 
-        <!-- Ações comuns a todos -->
         <div class="action-item" @click="$router.push('/beds')">
           <div class="action-icon">🏥</div>
           <span>Gestão de Leitos</span>
@@ -142,11 +110,39 @@
       </div>
     </div>
 
-    <!-- Módulos do Sistema -->
+    <!-- Módulos do Sistema - APENAS OS QUE FUNCIONAM -->
     <div class="system-modules">
       <h2>Módulos do Sistema</h2>
       <div class="modules-grid">
-        <!-- Seus módulos sempre disponíveis -->
+        <!-- Módulos do Gabriel -->
+        <div class="module-item available" @click="$router.push('/admission')">
+          <div class="module-icon">👥</div>
+          <div class="module-info">
+            <h3>Admissão de Pacientes</h3>
+            <p>Registro e gestão de admissões</p>
+          </div>
+          <div class="module-status">Online</div>
+        </div>
+
+        <div class="module-item available" @click="$router.push('/medical-record')">
+          <div class="module-icon">📋</div>
+          <div class="module-info">
+            <h3>Prontuário Eletrônico</h3>
+            <p>Registro completo do paciente</p>
+          </div>
+          <div class="module-status">Online</div>
+        </div>
+
+        <div class="module-item available" @click="$router.push('/financial')">
+          <div class="module-icon">💰</div>
+          <div class="module-info">
+            <h3>Gestão Financeira</h3>
+            <p>Controle de pagamentos e despesas</p>
+          </div>
+          <div class="module-status">Online</div>
+        </div>
+
+        <!-- Módulos do Italo -->
         <div class="module-item available" @click="$router.push('/beds')">
           <div class="module-icon">🏥</div>
           <div class="module-info">
@@ -163,25 +159,6 @@
             <p>Agendamento e gestão de atividades</p>
           </div>
           <div class="module-status">Online</div>
-        </div>
-
-        <!-- Módulos futuros -->
-        <div class="module-item coming-soon">
-          <div class="module-icon">📋</div>
-          <div class="module-info">
-            <h3>Prontuário Eletrônico</h3>
-            <p>Registro completo do paciente</p>
-          </div>
-          <div class="module-status">Em Breve</div>
-        </div>
-
-        <div class="module-item coming-soon">
-          <div class="module-icon">💊</div>
-          <div class="module-info">
-            <h3>Controle de Medicação</h3>
-            <p>Prescrição e administração</p>
-          </div>
-          <div class="module-status">Em Breve</div>
         </div>
       </div>
     </div>
@@ -245,14 +222,6 @@ const getUserTypeLabel = (userType) => {
   return labels[userType] || userType
 }
 
-const generateReport = () => {
-  alert('Gerando relatório diário...')
-}
-
-const viewProfile = () => {
-  alert('Abrindo perfil do usuário...')
-}
-
 onMounted(() => {
   // Recuperar usuário do localStorage
   const userData = localStorage.getItem('user')
@@ -290,38 +259,6 @@ onMounted(() => {
 .user-welcome {
   color: #666;
   font-size: 1.1rem;
-}
-
-.header-actions {
-  display: flex;
-  gap: 1rem;
-}
-
-.btn-report, .btn-profile {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background 0.3s ease;
-}
-
-.btn-report {
-  background: #1e3c72;
-  color: white;
-}
-
-.btn-profile {
-  background: #6c757d;
-  color: white;
-}
-
-.btn-report:hover {
-  background: #2a5298;
-}
-
-.btn-profile:hover {
-  background: #5a6268;
 }
 
 .metrics-grid {
@@ -443,12 +380,6 @@ onMounted(() => {
   box-shadow: 0 4px 15px rgba(0,0,0,0.15);
 }
 
-.module-item.coming-soon {
-  border-left: 4px solid #6c757d;
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
 .module-icon {
   font-size: 2rem;
 }
@@ -477,11 +408,6 @@ onMounted(() => {
   color: #155724;
 }
 
-.coming-soon .module-status {
-  background: #e2e3e5;
-  color: #383d41;
-}
-
 /* Responsividade */
 @media (max-width: 768px) {
   .dashboard-header {
@@ -489,9 +415,16 @@ onMounted(() => {
     gap: 1rem;
   }
   
-  .header-actions {
-    width: 100%;
-    justify-content: space-between;
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .actions-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .modules-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
